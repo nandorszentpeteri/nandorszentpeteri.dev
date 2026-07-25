@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
+
+import { SITE_URL } from "@/modules/site";
 import "@/theme/globals.css";
 
 export const metadata: Metadata = {
   title: "Nandor Szentpeteri — Senior Software Engineer",
   description:
     "Full-stack software engineer with 13+ years shipping web apps across gaming, streaming and smart home. Now deep in agentic AI. Explore the terminal, or switch to the classic view.",
-  metadataBase: new URL("https://nandorszentpeteri.dev"),
+  metadataBase: new URL(SITE_URL),
   openGraph: {
     title: "Nandor Szentpeteri — Senior Software Engineer",
     description:
