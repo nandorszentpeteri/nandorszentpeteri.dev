@@ -42,9 +42,13 @@ export default function Home() {
         }}
       >
         {/* identity — layout lives in globals.css so the mobile rule can override it */}
-        <div className="home-identity enter">
-          <WhoamiHeader name={name} nameSize="clamp(22px,2.8vw,36px)" />
-          <div className="home-hide-sm" style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: 13.5, lineHeight: 1.65, color: TEXT.muted }}>
+        {/* The entrance sits on each child, never on this column: a fade here
+            would inherit down into the name, and on a phone the name is the one
+            thing that has to stay put. Every child fades in step, so a desktop
+            visitor sees exactly what a single fade on the column looked like. */}
+        <div className="home-identity">
+          <WhoamiHeader name={name} nameSize="clamp(22px,2.8vw,36px)" className="enter-still-sm" />
+          <div className="home-hide-sm enter" style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: 13.5, lineHeight: 1.65, color: TEXT.muted }}>
             <p style={{ margin: 0 }}>
               Full-stack software engineer with 13+ years of experience building and shipping web applications. I&apos;ve
               worked at every layer of the stack, from React and Next.js front-ends to back-end microservices and CI/CD
@@ -56,9 +60,9 @@ export default function Home() {
               agentic systems, not just in engineering.
             </p>
           </div>
-          <Badges items={badges} className="home-hide-sm" />
-          <ContactBlock contact={contact} className="home-hide-sm" />
-          <ContactCompact contact={contact} />
+          <Badges items={badges} className="home-hide-sm enter" />
+          <ContactBlock contact={contact} className="home-hide-sm enter" />
+          <ContactCompact contact={contact} className="enter" />
           {/* On desktop the tagline closes the identity column. On a phone the
               column is stacked above the terminal, and a gradient CTA there made
               an already-loud first screen louder — so that copy is dropped and
@@ -70,7 +74,7 @@ export default function Home() {
             cta={contact.taglineCta}
             email={contact.email}
             align="left"
-            className="home-hide-sm"
+            className="home-hide-sm enter"
           />
         </div>
 

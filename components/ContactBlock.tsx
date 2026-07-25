@@ -76,6 +76,7 @@ export const ContactBlock = ({ contact, className }: ContactBlockProps) => (
 
 interface ContactCompactProps {
   contact: Contact;
+  className?: string;
 }
 
 /**
@@ -100,13 +101,13 @@ interface ContactCompactProps {
  * `.contact-compact a` in globals.css owns `color` so the `:hover` rule can win,
  * which an inline colour would make impossible.
  */
-export const ContactCompact = ({ contact }: ContactCompactProps) => {
+export const ContactCompact = ({ contact, className }: ContactCompactProps) => {
   // A slash reads as a path segment, which suits the terminal framing better
   // than a mid-dot and costs no extra width.
   const sep = <span style={{ color: TEXT.faint }}>/</span>;
   const accent = (color: string) => ({ ["--accent" as string]: color });
   return (
-    <div className="contact-compact">
+    <div className={`contact-compact${className ? ` ${className}` : ""}`}>
       <a className="link" href={`mailto:${contact.email}`} style={accent(PALETTE.cyan)}>
         email
       </a>

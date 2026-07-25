@@ -459,13 +459,33 @@ a:hover {
     opacity: 1;
   }
 }
-.enter {
+.enter,
+.enter-still-sm {
   animation: fade-in 0.35s ease-out both;
   animation-delay: var(--enter-delay, 0s);
 }
 
+/* `.enter-still-sm` fades on a desktop and holds perfectly still on a phone.
+   It belongs to exactly one thing: `.whoami` — the portrait, the name and the
+   typed role — which both views render identically. On a wide screen it's one
+   element among many and the fade reads as the page composing itself. On a
+   phone it's the whole first screen, and since the entrance replays on every
+   terminal↔classic switch, fading the very thing that didn't change makes the
+   switch feel like a fresh page load rather than a change of view.
+
+   Opacity inherits, so nothing can be exempted from a fade on an ancestor —
+   which is why both pages hang `.enter` off each child of the identity block
+   rather than off the block itself. Every child animates in step, so a desktop
+   visitor sees exactly what one fade on the container looked like. */
+@media (max-width: 900px) {
+  .enter-still-sm {
+    animation: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .enter {
+  .enter,
+  .enter-still-sm {
     animation: none;
   }
 }

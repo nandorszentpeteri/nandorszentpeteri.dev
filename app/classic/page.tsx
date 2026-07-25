@@ -78,21 +78,25 @@ export default function Classic() {
         </div>
 
         {/* hero */}
-        <header className="cv-section cv-section-hero enter">
+        {/* The entrance is on the children rather than on this header, so the
+            name, portrait and typed role can hold still on a phone while the
+            prose below them still fades in. Opacity inherits — a fade here
+            would take the name with it, whatever the children asked for. */}
+        <header className="cv-section cv-section-hero">
           <div style={{ marginBottom: 24 }}>
-            <WhoamiHeader name={cv.name} />
+            <WhoamiHeader name={cv.name} className="enter-still-sm" />
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 640, fontSize: 14, lineHeight: 1.65, color: TEXT.muted, marginBottom: 22 }}>
+          <div className="enter" style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 640, fontSize: 14, lineHeight: 1.65, color: TEXT.muted, marginBottom: 22 }}>
             {cv.bio.map((p, i) => (
               <p key={i} style={{ margin: 0 }}>
                 {p}
               </p>
             ))}
           </div>
-          <Badges items={cv.badges} />
+          <Badges items={cv.badges} className="enter" />
 
           {/* the same block the terminal view's identity column renders */}
-          <div style={{ marginTop: 24 }}>
+          <div className="enter" style={{ marginTop: 24 }}>
             <ContactBlock contact={cv.contact} />
           </div>
         </header>

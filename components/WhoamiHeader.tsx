@@ -10,14 +10,21 @@ interface WhoamiHeaderProps {
   name: string;
   /** The name's font size; the classic hero has far more room than the column. */
   nameSize?: string;
+  /** Both pages pass the entrance here rather than to a parent — see below. */
+  className?: string;
 }
 
 /**
  * The identity header both views open with: the `$ whoami` prompt, the name, and
  * the self-typing role line. Shared so the two views can't drift apart.
+ *
+ * Both pages hand this its own entrance class instead of animating a container
+ * around it. Opacity inherits, so a fade on any ancestor would take these three
+ * elements with it — and on a phone they're the one thing that must not fade,
+ * being identical across a terminal↔classic switch.
  */
-export const WhoamiHeader = ({ name, nameSize = "clamp(30px,4.2vw,46px)" }: WhoamiHeaderProps) => (
-  <div className="whoami" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+export const WhoamiHeader = ({ name, nameSize = "clamp(30px,4.2vw,46px)", className }: WhoamiHeaderProps) => (
+  <div className={`whoami${className ? ` ${className}` : ""}`} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
     <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: TEXT.dim }}>$ whoami</div>
     {/* The name and the role share a column so the portrait can stand against
         both. The portrait leads: with alt="" it is out of the accessibility
