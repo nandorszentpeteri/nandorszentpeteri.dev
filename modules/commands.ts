@@ -24,8 +24,9 @@ import type { LineColor } from "@/theme/palette";
 export type { LineColor };
 
 /** A run of text within a line that carries its own colour / weight. `href`
- *  turns the run into a real link — real terminals linkify URLs too. */
-export type Segment = { text: string; color?: LineColor; bold?: boolean; href?: string };
+ *  turns the run into a real link — real terminals linkify URLs too. `wide`
+ *  marks a run worth showing only when there's room for it (see below). */
+export type Segment = { text: string; color?: LineColor; bold?: boolean; href?: string; wide?: boolean };
 
 /**
  * One rendered line. `text` is always the plain (marker-stripped) content, so
@@ -44,8 +45,22 @@ export type Segment = { text: string; color?: LineColor; bold?: boolean; href?: 
  *
  * Only lines whose alignment carries meaning need it. Prose is left alone —
  * hanging prose looks like a series of unrelated fragments.
+ *
+ * `wide` marks a line (or, on a Segment, a run) that a desktop has room for and
+ * a phone doesn't. This module stays free of viewport questions: it says
+ * everything it has to say and flags what's optional, and the stylesheet drops
+ * the flagged parts below the same breakpoint the rest of the site uses. That
+ * keeps the shell a pure function of the filesystem — no width to thread
+ * through, nothing to measure, nothing to get wrong between the server's HTML
+ * and the browser's — and it re-decides on its own when a window is resized.
  */
-export type OutputLine = { text: string; color?: LineColor; segments?: Segment[]; wrapIndent?: number };
+export type OutputLine = {
+  text: string;
+  color?: LineColor;
+  segments?: Segment[];
+  wrapIndent?: number;
+  wide?: boolean;
+};
 
 /**
  * Who the shell says it is. Parsed out of `content/*.md` and handed in, so
@@ -129,7 +144,8 @@ const notADir = (cmd: string, target: string): OutputLine[] => [c(`${cmd}: ${tar
 const TABLE_INDENT = "  ";
 
 /**
- * Lay a name and a description out as a padded two-column row.
+ * Lay a name and a description out as a padded two-column row, optionally
+ * trailed by an aside that only a wide terminal shows.
  *
  * Curried on the column width so `help` and `aliases` each fix their own, and
  * so the width is stated once per table rather than at every row. The returned
@@ -139,11 +155,20 @@ const TABLE_INDENT = "  ";
  */
 const tableRow =
   (width: number) =>
-  (name: string, description: string, color: LineColor = "text"): OutputLine => ({
-    text: `${TABLE_INDENT}${name.padEnd(width)}${description}`,
-    color,
-    wrapIndent: TABLE_INDENT.length + width,
-  });
+  (name: string, description: string, color: LineColor = "text", aside?: string): OutputLine => {
+    const row = `${TABLE_INDENT}${name.padEnd(width)}${description}`;
+    const trailing = aside ? `  ${aside}` : "";
+    return {
+      // `text` keeps the aside whether or not it's shown: it's the plain content
+      // of the line, which is what assertions and the pager's joins want.
+      text: row + trailing,
+      color,
+      wrapIndent: TABLE_INDENT.length + width,
+      // Segments only when there's something to hide — a one-colour row has no
+      // reason to become a list of spans.
+      ...(aside ? { segments: [{ text: row }, { text: trailing, color: "faint", wide: true }] } : {}),
+    };
+  };
 
 /** The widest name plus a two-space gutter — the column the descriptions start at. */
 const columnFor = (names: string[]) => Math.max(...names.map((n) => n.length)) + 2;
@@ -152,18 +177,18 @@ const columnFor = (names: string[]) => Math.max(...names.map((n) => n.length)) +
  * The command table, as data rather than pre-padded strings, so the column
  * width is computed from the contents.
  *
- * Descriptions are kept short deliberately. This table is the first thing most
- * visitors read, and the narrow phones still in use fit about 37 monospace
- * characters — so a row of 40 loses its last word to the next line. The asides
- * that used to trail these (`cd ..`, `q to quit`) live on a prose line below
- * for the same reason. `wrapIndent` catches whatever still overflows.
+ * The description column is deliberately terse: this table is the first thing
+ * most visitors read, and the narrow phones still in use fit about 34 monospace
+ * characters, so a row of 40 loses its last word to the next line. A desktop
+ * has 60–120, which is room for the two rows that genuinely have more to say —
+ * hence the fourth field, an aside only a wide terminal shows.
  */
-const HELP_ROWS: [name: string, description: string, color?: LineColor][] = [
+const HELP_ROWS: [name: string, description: string, color?: LineColor, aside?: string][] = [
   ["whoami", "who is this guy"],
   ["ls [path]", "list a directory"],
-  ["cd [path]", "change directory"],
+  ["cd [path]", "change directory", "text", "(cd .. , cd ~ , cd -)"],
   ["cat <file>", "print a file"],
-  ["less <file>", "page through a file"],
+  ["less <file>", "page through a file", "text", "(q to quit)"],
   ["tree [path]", "show the tree"],
   ["pwd", "where am I"],
   ["contact-me", "how to reach me"],
@@ -174,17 +199,36 @@ const HELP_ROWS: [name: string, description: string, color?: LineColor][] = [
 
 const helpRow = tableRow(columnFor(HELP_ROWS.map(([name]) => name)));
 
+/** The alias words, spelled out for a terminal wide enough to hold the list. */
+const shortcutWords = [
+  "about",
+  "work",
+  "skills",
+  "education",
+  "certs",
+  ...(WRITINGS_ENABLED ? ["writings"] : []),
+  "interests",
+  "contact",
+];
+
+/** Shown only above the breakpoint — including the blank line above it, or a
+ *  phone would render the gap that used to separate something. */
+const wide = (line: OutputLine): OutputLine => ({ ...line, wide: true });
+
 const helpLines = (): OutputLine[] => [
   c("bash-ish. real commands, real filesystem. try these:", "dim"),
   c(""),
-  ...HELP_ROWS.map(([name, description, color]) => helpRow(name, description, color)),
+  ...HELP_ROWS.map(([name, description, color, aside]) => helpRow(name, description, color, aside)),
   c(""),
-  // All that's left of what used to be a block of hints. `q quits the pager` is
-  // printed by the pager itself, `cd ..` behaves the way anyone typing `cd`
-  // expects, and `aliases` is a command in the table rather than a list to copy
-  // out here — so the only line that earned its place is the one that makes the
-  // table look incomplete on purpose. Kept under ~34 characters: prose has no
-  // alignment for `wrapIndent` to preserve, so staying short is all it has.
+  // Everything from here to the last line is desktop-only. It's what the phone
+  // couldn't afford: the shortcut words (the list was the widest line in the
+  // output, and it wrapped into a line beginning with a separator), and the tip
+  // about Tab and history. A phone is left with the one line that matters most
+  // — the one telling you the table isn't the whole story.
+  wide(c("shortcuts for the impatient (see `aliases`):", "dim")),
+  wide({ ...c(`${TABLE_INDENT}${shortcutWords.join(" · ")}`, "faint"), wrapIndent: TABLE_INDENT.length }),
+  wide(c("")),
+  wide(c("tip: Tab completes, ↑/↓ walk history.", "faint")),
   c("...and maybe a hidden one or two.", "faint"),
 ];
 

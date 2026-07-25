@@ -26,12 +26,18 @@ export const TerminalLine = ({ line, size = 13 }: TerminalLineProps) => {
       : null),
   };
 
+  // `term-wide` is the whole of the shell's responsive story: the line said it
+  // was optional, and the stylesheet drops it on a narrow screen.
   if (!line.segments) {
-    return <div style={base}>{line.text || " "}</div>;
+    return (
+      <div className={line.wide ? "term-wide" : undefined} style={base}>
+        {line.text || " "}
+      </div>
+    );
   }
 
   return (
-    <div style={base}>
+    <div className={line.wide ? "term-wide" : undefined} style={base}>
       {line.segments.map((seg, i) => {
         const style: React.CSSProperties = {
           color: LINE_COLORS[seg.color ?? line.color ?? "text"],
@@ -40,7 +46,7 @@ export const TerminalLine = ({ line, size = 13 }: TerminalLineProps) => {
 
         if (!seg.href) {
           return (
-            <span key={i} style={style}>
+            <span key={i} className={seg.wide ? "term-wide" : undefined} style={style}>
               {seg.text}
             </span>
           );

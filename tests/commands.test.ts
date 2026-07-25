@@ -136,7 +136,7 @@ describe("runCommand — shell built-ins", () => {
   });
 
   it("help rows all hang at the same column", () => {
-    const rows = runCommand(root, home, "help").lines.filter((l) => l.wrapIndent);
+    const rows = runCommand(root, home, "help").lines.filter((l) => l.text.startsWith("  ") && !l.wide);
     expect(new Set(rows.map((l) => l.wrapIndent)).size).toBe(1);
   });
 
@@ -145,17 +145,72 @@ describe("runCommand — shell built-ins", () => {
     expect(prose?.wrapIndent).toBeUndefined();
   });
 
-  // Dropped from help on purpose: it's a command in the table, and the list it
-  // printed was the one line too wide to survive a phone.
-  it("help points at the aliases command rather than listing the shortcuts", () => {
-    const r = runCommand(root, home, "help");
-    expect(text(r)).toMatch(/aliases/);
-    expect(text(r)).not.toMatch(/education · certs/);
-  });
-
   it("aliases rows hang at their own description column", () => {
     const row = runCommand(root, home, "aliases").lines.find((l) => l.text.includes("cat ~/work.md"));
     expect(row?.wrapIndent).toBe(row?.text.indexOf("cat ~/work.md"));
+  });
+});
+
+// The shell never asks how wide the terminal is; it says everything and flags
+// what only a desktop has room for, and the stylesheet drops the rest. These
+// assert the flags, since nothing else in this module can see a viewport.
+describe("runCommand — help at two widths", () => {
+  const helpLines = () => runCommand(root, home, "help").lines;
+
+  /** Spelled out rather than imported, so the test fails if the table shrinks. */
+  const TABLE_COMMANDS = [
+    "whoami",
+    "ls [path]",
+    "cd [path]",
+    "cat <file>",
+    "less <file>",
+    "tree [path]",
+    "pwd",
+    "contact-me",
+    "aliases",
+    "clear",
+    "gui",
+  ];
+
+  it("marks the shortcut word list as desktop-only", () => {
+    const list = helpLines().find((l) => l.text.includes("education · certs"));
+    expect(list?.wide).toBe(true);
+  });
+
+  it("marks the blank line above a desktop-only block too", () => {
+    const lines = helpLines();
+    const tip = lines.findIndex((l) => l.text.startsWith("tip:"));
+    expect(lines[tip - 1]).toMatchObject({ text: "", wide: true });
+  });
+
+  it("keeps the closing line at every width", () => {
+    const closing = helpLines().find((l) => l.text.startsWith("...and maybe"));
+    expect(closing?.wide).toBeUndefined();
+  });
+
+  // The guarantee that matters: a phone loses asides and hints, never a command.
+  it("keeps every command row at every width", () => {
+    const onPhone = helpLines()
+      .filter((l) => !l.wide)
+      .map((l) => l.text)
+      .join("\n");
+    const missing = TABLE_COMMANDS.filter((cmd) => !onPhone.includes(cmd));
+    expect(missing).toEqual([]);
+  });
+
+  it("splits a row with an aside so only the aside is desktop-only", () => {
+    const row = helpLines().find((l) => l.text.includes("change directory"));
+    expect(row?.segments?.map((s) => Boolean(s.wide))).toEqual([false, true]);
+  });
+
+  it("keeps the aside out of the row that a phone reads", () => {
+    const row = helpLines().find((l) => l.text.includes("change directory"));
+    expect(row?.segments?.[0].text).not.toMatch(/cd ~/);
+  });
+
+  it("leaves a row without an aside as plain text, not segments", () => {
+    const row = helpLines().find((l) => l.text.includes("who is this guy"));
+    expect(row?.segments).toBeUndefined();
   });
 
   it("whoami prints the name from the content", () => {
