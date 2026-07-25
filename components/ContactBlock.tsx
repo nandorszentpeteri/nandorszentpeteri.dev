@@ -1,3 +1,4 @@
+import { CopyEmail } from "@/components/CopyEmail";
 import type { Contact } from "@/modules/cv";
 import { BORDER, PALETTE, TEXT } from "@/theme/palette";
 
@@ -49,6 +50,8 @@ export const ContactBlock = ({ contact, className }: ContactBlockProps) => (
       <a className="link" href={`mailto:${contact.email}`} style={{ color: PALETTE.cyan }}>
         {contact.email}
       </a>
+      {/* the way out for anyone whose mailto: goes nowhere — see CopyEmail */}
+      <CopyEmail email={contact.email} />
     </Row>
     <Row name="linkedin">
       <a className="link" href={`https://${contact.linkedin}`} {...external} style={{ color: PALETTE.pink }}>

@@ -364,6 +364,56 @@ a:hover {
   }
 }
 
+/* Available to a screen reader, invisible to everyone else. The clip-rect
+   dance rather than `display:none` or `visibility:hidden`, both of which take
+   the text out of the accessibility tree along with the layout. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The copy button beside the email address. It rests at label brightness — the
+   address is what you're meant to read, this is only for when you'd rather not
+   trust a mailto — and takes the accent when you reach for it. Green on
+   success, matching the terminal's colour for "this worked". */
+.copy-email {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: color-mix(in srgb, var(--white) 48%, transparent);
+  cursor: pointer;
+  vertical-align: -2px;
+  transition: color 0.2s;
+}
+.copy-email:hover {
+  color: var(--cyan);
+}
+.copy-email:focus-visible {
+  color: var(--cyan);
+  outline: 1px solid var(--cyan);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+.copy-email[data-copied="true"] {
+  color: var(--green);
+}
+@media (prefers-reduced-motion: reduce) {
+  .copy-email {
+    transition: none;
+  }
+}
+
 /* Contact rows: the label column narrows on small phones so the longer values
    (linkedin, github) still fit on one line. */
 .contact-label {
