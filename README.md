@@ -1,4 +1,4 @@
-# nandorszentpeteri-personal
+# nandorszentpeteri.dev
 
 A portfolio site with two front doors:
 
