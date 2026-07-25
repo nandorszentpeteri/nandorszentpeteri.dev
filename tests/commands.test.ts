@@ -141,7 +141,7 @@ describe("runCommand — shell built-ins", () => {
   });
 
   it("help leaves prose unindented, having no alignment to preserve", () => {
-    const prose = runCommand(root, home, "help").lines.find((l) => l.text.startsWith("cd .. ,"));
+    const prose = runCommand(root, home, "help").lines.find((l) => l.text.startsWith("bash-ish"));
     expect(prose?.wrapIndent).toBeUndefined();
   });
 

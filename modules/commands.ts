@@ -179,16 +179,12 @@ const helpLines = (): OutputLine[] => [
   c(""),
   ...HELP_ROWS.map(([name, description, color]) => helpRow(name, description, color)),
   c(""),
-  // Short lines, one fact each, rather than a paragraph of hints. Prose has no
-  // alignment for `wrapIndent` to preserve, so the only way it survives a narrow
-  // screen is by being short enough not to need the screen's whole width.
-  // `aliases` used to spell its own shortcuts out here too; it's a command in
-  // the table above, and running it is a better introduction than a list that
-  // wrapped into a line beginning with a separator.
-  c("cd .. , cd ~ and cd - all work.", "faint"),
-  c("Tab completes, ↑/↓ walk history.", "faint"),
-  c("q quits the pager.", "faint"),
-  c(""),
+  // All that's left of what used to be a block of hints. `q quits the pager` is
+  // printed by the pager itself, `cd ..` behaves the way anyone typing `cd`
+  // expects, and `aliases` is a command in the table rather than a list to copy
+  // out here — so the only line that earned its place is the one that makes the
+  // table look incomplete on purpose. Kept under ~34 characters: prose has no
+  // alignment for `wrapIndent` to preserve, so staying short is all it has.
   c("...and maybe a hidden one or two.", "faint"),
 ];
 
