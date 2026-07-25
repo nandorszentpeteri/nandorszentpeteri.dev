@@ -66,7 +66,7 @@ export default function Classic() {
       <div style={{ position: "relative", zIndex: 1 }}>
         {/* top bar — identical to the terminal view so it doesn't jump */}
         <div className="topbar">
-          <span className="topbar-path">~/nandorszentpeteri</span>
+          <span className="topbar-path">~/nandorszentpeteri.dev</span>
           <ViewToggle active="classic" />
         </div>
 
@@ -204,7 +204,7 @@ export default function Classic() {
         {/* footer — contact details live in the hero block, not repeated here */}
         <section className="cv-section cv-section-footer">
           <ContactTagline text={cv.contact.tagline} />
-          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 30, paddingTop: 24, borderTop: `1px solid ${BORDER.subtle}`, fontFamily: "var(--font-mono)", fontSize: 11, color: TEXT.ghost }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 30, paddingTop: 24, borderTop: `1px solid ${BORDER.subtle}`, fontFamily: "var(--font-mono)", fontSize: 11, color: TEXT.faint }}>
             <span>© 2026 Nandor Szentpeteri</span>
             <span>built with Next.js · deployed on Vercel</span>
           </div>

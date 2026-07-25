@@ -251,7 +251,8 @@ a:hover {
 .contact-label {
   display: inline-block;
   width: 82px;
-  color: color-mix(in srgb, var(--white) 35%, transparent);
+  /* matches TEXT.label — 48% is the lowest that clears WCAG AA here */
+  color: color-mix(in srgb, var(--white) 48%, transparent);
 }
 @media (max-width: 420px) {
   .contact-label {

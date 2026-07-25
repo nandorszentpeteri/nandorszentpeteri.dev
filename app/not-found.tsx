@@ -63,7 +63,7 @@ const NotFound = () => (
           <span style={{ width: 11, height: 11, borderRadius: "50%", background: PALETTE.pink, opacity: 0.8 }} />
           <span style={{ width: 11, height: 11, borderRadius: "50%", background: PALETTE.purple, opacity: 0.8 }} />
           <span style={{ width: 11, height: 11, borderRadius: "50%", background: PALETTE.cyan, opacity: 0.8 }} />
-          <span style={{ marginLeft: 10, fontFamily: "var(--font-mono)", fontSize: 11, color: fade(PALETTE.white, 40) }}>
+          <span style={{ marginLeft: 10, fontFamily: "var(--font-mono)", fontSize: 11, color: TEXT.faint }}>
             guest@nandor
           </span>
         </div>

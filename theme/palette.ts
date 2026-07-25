@@ -28,7 +28,15 @@ export const PALETTE = {
  */
 export const fade = (color: string, pct: number) => `color-mix(in srgb, ${color} ${pct}%, transparent)`;
 
-/** The white text ramp, brightest to faintest. Use `fade` directly for one-offs. */
+/**
+ * The white text ramp, brightest to faintest. Use `fade` directly for one-offs.
+ *
+ * The floor is 46%: below that, white-on-`--terminal-bg` drops under the 4.5:1
+ * WCAG AA minimum for body text, and the hints most worth reading (`type "help"
+ * to list commands`) were the least legible thing on the page. `ghost` used to
+ * sit at 25% / 2.1:1 — once lifted to a passing value it was indistinguishable
+ * from `faint`, so it's gone rather than pretending to be a separate step.
+ */
 export const TEXT = {
   strong: PALETTE.white,
   /** Terminal output. */
@@ -42,13 +50,11 @@ export const TEXT = {
   /** Dimmed terminal lines. */
   soft: fade(PALETTE.white, 55),
   /** Labels and inactive controls. */
-  dim: fade(PALETTE.white, 45),
+  dim: fade(PALETTE.white, 50),
   /** Field labels. */
-  label: fade(PALETTE.white, 35),
-  /** Faint terminal lines and hints. */
-  faint: fade(PALETTE.white, 30),
-  /** Footer small print. */
-  ghost: fade(PALETTE.white, 25),
+  label: fade(PALETTE.white, 48),
+  /** Faint terminal lines, hints and small print — the accessible floor. */
+  faint: fade(PALETTE.white, 46),
 } as const;
 
 /** Hairlines and dividers. */

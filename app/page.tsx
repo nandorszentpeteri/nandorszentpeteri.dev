@@ -22,7 +22,7 @@ export default function Home() {
 
       {/* top bar */}
       <div className="topbar" style={{ position: "relative", zIndex: 2 }}>
-        <span className="topbar-path">~/nandorszentpeteri</span>
+        <span className="topbar-path">~/nandorszentpeteri.dev</span>
         <ViewToggle active="terminal" />
       </div>
 
