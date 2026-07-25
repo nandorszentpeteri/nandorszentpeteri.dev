@@ -251,11 +251,11 @@ export const Terminal = ({ entries, identity }: TerminalProps) => {
         <div
           ref={boxRef}
           className="term-scroll"
+          // padding lives in .term-scroll so it can tighten on phones
           style={{
             flex: 1,
             minHeight: 0,
             overflowY: "auto",
-            padding: "18px 20px",
             display: "flex",
             flexDirection: "column",
             gap: 4,
@@ -342,10 +342,12 @@ export const Terminal = ({ entries, identity }: TerminalProps) => {
                 {val.slice(0, caretPos)}
                 <span
                   className={focused ? "cursor-blink" : undefined}
+                  // White rather than an accent, matching a real terminal caret
+                  // — and it stops the block reading as a highlight/selection.
                   style={
                     focused
-                      ? { background: PALETTE.cyan, color: PALETTE.terminalBg }
-                      : { boxShadow: `inset 0 0 0 1px ${PALETTE.cyan}`, color: TEXT.strong }
+                      ? { background: PALETTE.white, color: PALETTE.terminalBg }
+                      : { boxShadow: `inset 0 0 0 1px ${PALETTE.white}`, color: TEXT.strong }
                   }
                 >
                   {val.slice(caretPos, caretPos + 1) || " "}
@@ -386,8 +388,13 @@ export const Terminal = ({ entries, identity }: TerminalProps) => {
       </div>
 
       <div style={{ marginTop: 10, flexShrink: 0, fontFamily: "var(--font-mono)", fontSize: 11, color: TEXT.faint, textAlign: "right" }}>
-        <span style={{ color: PALETTE.cyan }}>help</span> ·
-        <span style={{ color: PALETTE.cyan }}>whoami</span> ·
+        {/* The two plain lookups sit a step above the surrounding faint text but
+            take no accent — colouring all four flattened the row into a strip of
+            neon where nothing stood out. The accents are kept for the two that
+            actually go somewhere: hire-me opens a mail draft, gui leaves the
+            terminal behind. */}
+        <span style={{ color: TEXT.secondary }}>help</span> ·
+        <span style={{ color: TEXT.secondary }}>whoami</span> ·
         <span style={{ color: PALETTE.green }}>hire-me</span> ·
         prefer scrolling? <span style={{ color: PALETTE.pink }}>gui</span>
       </div>

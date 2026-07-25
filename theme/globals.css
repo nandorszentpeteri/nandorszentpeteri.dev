@@ -49,6 +49,30 @@ a:hover {
   color: var(--bg);
 }
 
+/* The scrolling body of the terminal and the pager. Padding lives here rather
+   than inline so it can tighten on phones: at 20px a side it was eating 40px of
+   a 390px screen, which is five monospace characters — enough to wrap lines the
+   help table was written to fit. */
+.term-scroll {
+  padding: 18px 20px;
+}
+@media (max-width: 700px) {
+  .term-scroll {
+    padding: 14px 12px;
+  }
+}
+
+/* One line of terminal output. A real terminal never wraps mid-thought because
+   the text was written to the column width; here the column is whatever phone
+   is holding it, so wrapping is a fact of life and the job is to make it look
+   deliberate. The negative text-indent cancels the padding for the first line
+   and leaves it for every line after, so a continuation sits a couple of
+   characters in — clearly the same entry, not the next one. */
+.term-line {
+  padding-left: 2ch;
+  text-indent: -2ch;
+}
+
 /* Thin, on-theme scrollbars inside the terminal + pager. */
 .term-scroll::-webkit-scrollbar {
   width: 8px;
@@ -292,6 +316,19 @@ a:hover {
   }
 }
 
+/* The phone-only copy of the tagline, below the terminal (app/page.tsx renders
+   it twice and lets these two rules pick the one that shows). Hidden by default
+   so the desktop row layout never gains a third column. */
+.home-tagline-sm {
+  display: none;
+}
+@media (max-width: 900px) {
+  .home-tagline-sm {
+    display: block;
+    flex: 0 0 auto;
+  }
+}
+
 /* The compact contact row replaces the full block below 900px. Hidden by
    default so the desktop layout is unaffected; no inline `display` on the
    element, so no !important is needed to flip it. */
@@ -306,6 +343,22 @@ a:hover {
 @media (max-width: 900px) {
   .contact-compact {
     display: flex;
+  }
+}
+/* These rest as plain text and light up in their own accent on hover — see the
+   note on ContactCompact. `color` has to live here rather than inline, because
+   an inline colour would beat the :hover rule and the accent could never show.
+   The 75% white matches the classic page's list text. */
+.contact-compact a {
+  color: color-mix(in srgb, var(--white) 75%, transparent);
+  transition: color 0.2s, text-shadow 0.2s;
+}
+.contact-compact a:hover {
+  color: var(--accent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .contact-compact a {
+    transition: none;
   }
 }
 

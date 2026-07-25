@@ -19,11 +19,18 @@ const PINK = PALETTE.pink;
 const GREEN = PALETTE.green;
 const CARD_COLORS = [CYAN, PINK, GREEN];
 
-/** Render **bold** project/tech names as cyan highlights within prose. */
+/**
+ * Render **bold** project/tech names as highlights within prose.
+ *
+ * Not an accent colour: every accent on this page is already spoken for by a
+ * link, so cyan highlights read as links that don't click. The emphasis is
+ * weight and a lift out of the muted body colour to full white instead —
+ * unmistakably "this matters", unmistakably not a destination.
+ */
 const withHighlights = (text: string): React.ReactNode[] =>
   text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
     part.startsWith("**") && part.endsWith("**") ? (
-      <strong key={i} style={{ color: CYAN, fontWeight: 600 }}>
+      <strong key={i} style={{ color: TEXT.strong, fontWeight: 600 }}>
         {part.slice(2, -2)}
       </strong>
     ) : (

@@ -19,11 +19,15 @@ export const TerminalLine = ({ line, size = 13 }: TerminalLineProps) => {
   };
 
   if (!line.segments) {
-    return <div style={base}>{line.text || " "}</div>;
+    return (
+      <div className="term-line" style={base}>
+        {line.text || " "}
+      </div>
+    );
   }
 
   return (
-    <div style={base}>
+    <div className="term-line" style={base}>
       {line.segments.map((seg, i) => {
         const style: React.CSSProperties = {
           color: LINE_COLORS[seg.color ?? line.color ?? "text"],

@@ -76,13 +76,16 @@ export const TypedRole = () => {
     <div className="typed-role">
       <span style={{ color: TEXT.dim }}>// </span>
       <span className="gradient-text">{text}</span>
+      {/* White, not an accent: the word it trails is already painted with the
+          brand ramp, and a cyan block on the end of it read as one more colour
+          in the line rather than as a caret. */}
       <span
         className="cursor-blink"
         style={{
           display: "inline-block",
           width: "0.55em",
           height: "1em",
-          background: PALETTE.cyan,
+          background: PALETTE.white,
           marginLeft: 3,
           verticalAlign: -2,
         }}

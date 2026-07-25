@@ -88,26 +88,38 @@ interface ContactCompactProps {
  * Shown/hidden purely in CSS (`.contact-compact`) rather than by measuring the
  * viewport in JS, because this page is statically exported: a JS switch would
  * render the wrong variant on the server and visibly swap after hydration.
+ *
+ * Unlike the desktop block, these rest in plain text and only take their accent
+ * on hover. There the rows are spread down a column with room to breathe; here
+ * they're four words on one line, and four accents in that little space turned
+ * the top of a phone screen into a colour chart. Nothing is lost by holding the
+ * colour back — every item in this row is a link, so there's no plain text for
+ * them to be confused with, and the accent is still there to be found.
+ *
+ * The colour is carried as `--accent` rather than set on `color` directly:
+ * `.contact-compact a` in globals.css owns `color` so the `:hover` rule can win,
+ * which an inline colour would make impossible.
  */
 export const ContactCompact = ({ contact }: ContactCompactProps) => {
   // A slash reads as a path segment, which suits the terminal framing better
   // than a mid-dot and costs no extra width.
   const sep = <span style={{ color: TEXT.faint }}>/</span>;
+  const accent = (color: string) => ({ ["--accent" as string]: color });
   return (
     <div className="contact-compact">
-      <a className="link" href={`mailto:${contact.email}`} style={{ color: PALETTE.cyan }}>
+      <a className="link" href={`mailto:${contact.email}`} style={accent(PALETTE.cyan)}>
         email
       </a>
       {sep}
-      <a className="link" href={`https://${contact.linkedin}`} {...external} style={{ color: PALETTE.pink }}>
+      <a className="link" href={`https://${contact.linkedin}`} {...external} style={accent(PALETTE.pink)}>
         linkedin
       </a>
       {sep}
-      <a className="link" href={`https://${contact.github}`} {...external} style={{ color: PALETTE.purple }}>
+      <a className="link" href={`https://${contact.github}`} {...external} style={accent(PALETTE.purple)}>
         github
       </a>
       {sep}
-      <a className="link" href={CV_FILE} download style={{ color: PALETTE.green }}>
+      <a className="link" href={CV_FILE} download style={accent(PALETTE.green)}>
         cv ↓
       </a>
     </div>
@@ -121,6 +133,8 @@ interface ContactTaglineProps {
   /** Address the CTA writes to. Without it the tagline stays plain text. */
   email?: string;
   align?: "left" | "center";
+  /** Lets a caller render it twice and let CSS pick which copy is shown. */
+  className?: string;
 }
 
 /** Distinct from hire-me's subject: this is the softer, general-enquiry door. */
@@ -137,14 +151,14 @@ const TAGLINE_SUBJECT = "Let's talk";
  */
 // Centring is a margin rather than text-align: the element is width:fit-content
 // so the gradient tracks the text, which means text-align has nothing to act on.
-export const ContactTagline = ({ text, cta, email, align = "center" }: ContactTaglineProps) => {
-  const className = `gradient-text tagline${align === "center" ? " tagline-center" : ""}`;
+export const ContactTagline = ({ text, cta, email, align = "center", className }: ContactTaglineProps) => {
+  const cls = ["gradient-text", "tagline", align === "center" && "tagline-center", className].filter(Boolean).join(" ");
   // Reworded markdown shouldn't be able to break the line — fall back to plain text.
   const at = cta ? text.indexOf(cta) : -1;
-  if (!cta || !email || at < 0) return <div className={className}>{text}</div>;
+  if (!cta || !email || at < 0) return <div className={cls}>{text}</div>;
 
   return (
-    <div className={className}>
+    <div className={cls}>
       {text.slice(0, at)}
       <a className="tagline-cta" href={`mailto:${email}?subject=${encodeURIComponent(TAGLINE_SUBJECT)}`}>
         {cta}

@@ -123,20 +123,29 @@ const shortcutWords = [
   "contact",
 ];
 
+/**
+ * The two-column table is the first thing most visitors read, and a phone is
+ * about 38 monospace characters wide. Every row here is kept under that, with
+ * the asides that used to trail the descriptions (`cd ..`, `q to quit`) moved
+ * to a prose line below — a wrapped table row reads as a second command, which
+ * is exactly the wrong thing for a list of commands to do.
+ */
 const helpLines = (): OutputLine[] => [
   c("bash-ish. real commands, real filesystem. try these:", "dim"),
   c(""),
-  c("  whoami           who is this guy", "text"),
-  c("  ls [path]        list a directory", "text"),
-  c("  cd [path]        change directory  (cd .. , cd ~ , cd -)", "text"),
-  c("  cat <file>       print a file", "text"),
-  c("  less <file>      page through a file  (q to quit)", "text"),
-  c("  tree [path]      show the tree", "text"),
-  c("  pwd              where am I", "text"),
-  c("  contact-me       how to reach me", "text"),
-  c("  aliases          list the friendly shortcuts", "text"),
-  c("  clear            wipe the screen", "text"),
-  c("  gui              open the classic (no-terminal) page", "cyan"),
+  c("  whoami       who is this guy", "text"),
+  c("  ls [path]    list a directory", "text"),
+  c("  cd [path]    change directory", "text"),
+  c("  cat <file>   print a file", "text"),
+  c("  less <file>  page through a file", "text"),
+  c("  tree [path]  show the tree", "text"),
+  c("  pwd          where am I", "text"),
+  c("  contact-me   how to reach me", "text"),
+  c("  aliases      list the shortcuts", "text"),
+  c("  clear        wipe the screen", "text"),
+  c("  gui          open the classic page", "cyan"),
+  c(""),
+  c("cd .. , cd ~ and cd - all work. q quits less.", "faint"),
   c(""),
   c("shortcuts for the impatient (see `aliases`):", "dim"),
   c(`  ${shortcutWords.join(" · ")}`, "faint"),

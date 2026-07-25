@@ -90,7 +90,8 @@ export const Less = ({ title, lines, onQuit }: LessProps) => {
         className="term-scroll"
         tabIndex={0}
         onKeyDown={onKeyDown}
-        style={{ flex: 1, overflowY: "auto", padding: "18px 20px", outline: "none", display: "flex", flexDirection: "column", gap: 4 }}
+        // padding lives in .term-scroll so it can tighten on phones
+        style={{ flex: 1, overflowY: "auto", outline: "none", display: "flex", flexDirection: "column", gap: 4 }}
       >
         {lines.map((line, i) => (
           <TerminalLine key={i} line={line} />

@@ -59,7 +59,19 @@ export default function Home() {
           <Badges items={badges} className="home-hide-sm" />
           <ContactBlock contact={contact} className="home-hide-sm" />
           <ContactCompact contact={contact} />
-          <ContactTagline text={contact.tagline} cta={contact.taglineCta} email={contact.email} align="left" />
+          {/* On desktop the tagline closes the identity column. On a phone the
+              column is stacked above the terminal, and a gradient CTA there made
+              an already-loud first screen louder — so that copy is dropped and
+              the one below the terminal takes over. Two renders rather than one
+              because the two positions are in different flex containers; only
+              ever one of them is displayed. */}
+          <ContactTagline
+            text={contact.tagline}
+            cta={contact.taglineCta}
+            email={contact.email}
+            align="left"
+            className="home-hide-sm"
+          />
         </div>
 
         {/* terminal */}
@@ -68,6 +80,14 @@ export default function Home() {
               address or job title is written down twice. */}
           <Terminal entries={entries} identity={{ name, headline, contact }} />
         </div>
+
+        {/* the phone-only copy of the closing line — see the note above */}
+        <ContactTagline
+          text={contact.tagline}
+          cta={contact.taglineCta}
+          email={contact.email}
+          className="home-tagline-sm enter"
+        />
       </div>
     </div>
   );
