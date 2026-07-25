@@ -1,13 +1,22 @@
 import { describe, it, expect } from "vitest";
+
+import { ALIASES, runCommand, type Identity } from "@/modules/commands";
 import { readContent } from "@/modules/content";
+import { parseCv } from "@/modules/cv";
 import { WRITINGS_ENABLED } from "@/modules/features";
 import { buildVfs, getNode, isFile, HOME_PATH } from "@/modules/vfs";
-import { ALIASES, runCommand } from "@/modules/commands";
 
 // Integration: the real markdown files on disk should mount into a working tree.
 describe("real content", () => {
   const entries = readContent();
   const root = buildVfs(entries);
+  const { name, headline, contact } = parseCv(entries);
+  const identity: Identity = { name, headline, contact };
+  const state = { cwd: HOME_PATH, identity };
+  const text = (input: string) =>
+    runCommand(root, state, input)
+      .lines.map((l) => l.text)
+      .join("\n");
 
   it("reads markdown files from content/", () => {
     expect(entries.length).toBeGreaterThan(0);
@@ -34,10 +43,30 @@ describe("real content", () => {
   it("every alias target resolves to a real file", () => {
     // work -> ~/work.md, about -> ~/README.md, etc.
     for (const cmd of Object.keys(ALIASES)) {
-      const r = runCommand(root, { cwd: HOME_PATH }, cmd);
-      const joined = r.lines.map((l) => l.text).join("\n");
+      const joined = text(cmd);
       expect(joined, `alias "${cmd}" should print file content`).not.toMatch(/no such file or directory/);
       expect(joined.length).toBeGreaterThan(0);
     }
+  });
+
+  it("parses a name and headline out of README.md", () => {
+    expect(name).not.toBe("");
+    expect(headline).not.toBe("");
+  });
+
+  it("parses a contact email out of contact.md", () => {
+    expect(contact.email).toMatch(/@/);
+  });
+
+  it("hands out the published address, not a second one", () => {
+    // The whole point of the domain alias: exactly one address ships.
+    for (const cmd of ["contact-me", "hire-me", "sudo hire-me"]) {
+      expect(text(cmd), `"${cmd}" should quote contact.md`).toContain(contact.email);
+    }
+  });
+
+  it("whoami agrees with README.md", () => {
+    expect(text("whoami")).toContain(name);
+    expect(text("whoami")).toContain(headline);
   });
 });

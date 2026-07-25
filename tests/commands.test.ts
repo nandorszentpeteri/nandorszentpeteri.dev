@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildVfs, HOME_PATH, type ContentEntry } from "@/modules/vfs";
-import { runCommand, complete, renderMarkdownLines, parseInline } from "@/modules/commands";
+import { runCommand, complete, renderMarkdownLines, parseInline, type Identity } from "@/modules/commands";
 
 // Mirrors the real content shape: single-file sections at home, plus the
 // writings/ directory for cd/ls to have something to walk into.
@@ -12,9 +12,23 @@ const ENTRIES: ContentEntry[] = [
   { path: "writings/webrtc.md", content: "# WebRTC\ndraft notes" },
 ];
 
+// Deliberately not Nandor's real details: these assertions must fail if the
+// shell ever goes back to printing a hardcoded address instead of the content.
+const IDENTITY: Identity = {
+  name: "Ada Lovelace",
+  headline: "Analyst @ Analytical Engine · London, UK",
+  contact: {
+    email: "ada@example.dev",
+    linkedin: "linkedin.com/in/ada",
+    github: "github.com/ada",
+    location: "London, UK",
+    tagline: "Say hi.",
+  },
+};
+
 const root = buildVfs(ENTRIES);
-const home = { cwd: HOME_PATH };
-const writings = { cwd: `${HOME_PATH}/writings` };
+const home = { cwd: HOME_PATH, identity: IDENTITY };
+const writings = { cwd: `${HOME_PATH}/writings`, identity: IDENTITY };
 const text = (r: ReturnType<typeof runCommand>) => r.lines.map((l) => l.text).join("\n");
 
 describe("runCommand — navigation", () => {
@@ -112,22 +126,38 @@ describe("runCommand — shell built-ins", () => {
     expect(text(r)).toMatch(/gui/);
   });
 
-  it("whoami prints a bespoke identity", () => {
+  it("whoami prints the name from the content", () => {
     const r = runCommand(root, home, "whoami");
-    expect(text(r)).toContain("Nandor Szentpeteri");
-    expect(text(r)).toMatch(/Senior Software Engineer @ Roku/);
+    expect(text(r)).toContain(IDENTITY.name);
   });
 
-  it("contact-me prints contact details", () => {
+  it("whoami prints the headline from the content", () => {
+    const r = runCommand(root, home, "whoami");
+    expect(text(r)).toContain(IDENTITY.headline);
+  });
+
+  it("contact-me prints the email from the content", () => {
     const r = runCommand(root, home, "contact-me");
-    expect(text(r)).toMatch(/nandor\.szentpeteri@gmail\.com/);
-    expect(text(r)).toMatch(/linkedin\.com\/in\/nandorszentpeteri/);
+    expect(text(r)).toContain(IDENTITY.contact.email);
+  });
+
+  it("contact-me prints every contact channel", () => {
+    const r = runCommand(root, home, "contact-me");
+    expect(text(r)).toContain(IDENTITY.contact.linkedin);
+    expect(text(r)).toContain(IDENTITY.contact.github);
+    expect(text(r)).toContain(IDENTITY.contact.location);
   });
 
   it("aliases lists friendly shortcuts", () => {
     const r = runCommand(root, home, "aliases");
     expect(text(r)).toMatch(/work/);
     expect(text(r)).toMatch(/cat ~\/work\.md/);
+  });
+
+  it("the aliases example points at a file that exists", () => {
+    const example = /same as "cat (.+?)"/.exec(text(runCommand(root, home, "aliases")))?.[1];
+    expect(example).toBeTruthy();
+    expect(text(runCommand(root, home, `cat ${example}`))).not.toMatch(/no such file/);
   });
 
   it("clear signals a screen wipe", () => {
@@ -170,7 +200,11 @@ describe("runCommand — aliases & easter eggs", () => {
   it("sudo hire-me grants permission", () => {
     const r = runCommand(root, home, "sudo hire-me");
     expect(text(r)).toMatch(/permission granted/);
-    expect(text(r)).toMatch(/nandor\.szentpeteri@gmail\.com/);
+  });
+
+  it("sudo hire-me hands out the email from the content", () => {
+    const r = runCommand(root, home, "sudo hire-me");
+    expect(text(r)).toContain(IDENTITY.contact.email);
   });
 });
 
@@ -198,6 +232,44 @@ describe("complete", () => {
   it("returns nothing for an unmatched path", () => {
     const r = complete(root, HOME_PATH, "cat zzz");
     expect(r.completions).toHaveLength(0);
+  });
+
+  it("keeps the command word when the input ends in a space", () => {
+    const r = complete(root, HOME_PATH, "cat ");
+    expect(r.replacement?.startsWith("cat ")).toBe(true);
+  });
+
+  it("lists every candidate when the input ends in a space", () => {
+    const r = complete(root, HOME_PATH, "cat ");
+    expect(r.completions).toEqual(expect.arrayContaining(["README.md", "work.md", "writings/"]));
+  });
+
+  it("keeps earlier arguments when completing after a space", () => {
+    const r = complete(root, HOME_PATH, "cat README.md ");
+    expect(r.replacement?.startsWith("cat README.md ")).toBe(true);
+  });
+});
+
+describe("runCommand — trailing slashes", () => {
+  it("cat rejects a file addressed as a directory", () => {
+    const r = runCommand(root, home, "cat README.md/");
+    expect(text(r)).toMatch(/not a directory/);
+  });
+
+  it("ls rejects a file addressed as a directory", () => {
+    const r = runCommand(root, home, "ls README.md/");
+    expect(text(r)).toMatch(/not a directory/);
+  });
+
+  it("less rejects a file addressed as a directory", () => {
+    const r = runCommand(root, home, "less README.md/");
+    expect(r.pager).toBeUndefined();
+    expect(text(r)).toMatch(/not a directory/);
+  });
+
+  it("still accepts a trailing slash on a real directory", () => {
+    const r = runCommand(root, home, "ls writings/");
+    expect(r.lines.map((l) => l.text)).toContain("webrtc.md");
   });
 });
 

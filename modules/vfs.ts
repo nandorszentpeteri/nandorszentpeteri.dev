@@ -30,29 +30,27 @@ export type ContentEntry = {
 export const HOME_SEGMENTS = ["home", "nandor"] as const;
 export const HOME_PATH = "/" + HOME_SEGMENTS.join("/");
 
-export function isDir(node: VfsNode | null | undefined): node is VfsDir {
-  return !!node && node.type === "dir";
-}
+export const isDir = (node: VfsNode | null | undefined): node is VfsDir => !!node && node.type === "dir";
 
-export function isFile(node: VfsNode | null | undefined): node is VfsFile {
-  return !!node && node.type === "file";
-}
+export const isFile = (node: VfsNode | null | undefined): node is VfsFile => !!node && node.type === "file";
 
-function emptyDir(name: string): VfsDir {
-  // Object.create(null), not {}: a plain literal inherits Object.prototype, so a
-  // path segment like `__proto__`, `constructor` or `toString` would resolve to
-  // an inherited property and be handed back as if it were a real node. `cat
-  // __proto__` then threw on `node.content`, and `cd __proto__` left the shell
-  // in a phantom directory where every later `ls` threw. A prototype-less object
-  // has nothing to inherit, so those lookups miss and return null as intended.
-  return { type: "dir", name, children: Object.create(null) as Record<string, VfsNode> };
-}
+// Object.create(null), not {}: a plain literal inherits Object.prototype, so a
+// path segment like `__proto__`, `constructor` or `toString` would resolve to
+// an inherited property and be handed back as if it were a real node. `cat
+// __proto__` then threw on `node.content`, and `cd __proto__` left the shell
+// in a phantom directory where every later `ls` threw. A prototype-less object
+// has nothing to inherit, so those lookups miss and return null as intended.
+const emptyDir = (name: string): VfsDir => ({
+  type: "dir",
+  name,
+  children: Object.create(null) as Record<string, VfsNode>,
+});
 
 /**
  * Build the full filesystem tree from flat content entries, mounting every
  * entry under the home directory. Returns the root node (`/`).
  */
-export function buildVfs(entries: ContentEntry[]): VfsDir {
+export const buildVfs = (entries: ContentEntry[]): VfsDir => {
   const root = emptyDir("");
 
   // Ensure /home/nandor exists even if there is no content.
@@ -79,10 +77,10 @@ export function buildVfs(entries: ContentEntry[]): VfsDir {
   }
 
   return root;
-}
+};
 
 /** Collapse `.` and `..` segments. Leading `..` at the root are dropped. */
-export function normalizeSegments(segments: string[]): string[] {
+export const normalizeSegments = (segments: string[]): string[] => {
   const out: string[] = [];
   for (const seg of segments) {
     if (seg === "" || seg === ".") continue;
@@ -93,13 +91,13 @@ export function normalizeSegments(segments: string[]): string[] {
     out.push(seg);
   }
   return out;
-}
+};
 
 /**
  * Resolve `target` against `cwd` (an absolute path). Supports absolute paths,
  * relative paths, `~` (home), `.` and `..`. Returns an absolute path string.
  */
-export function resolvePath(cwd: string, target: string): string {
+export const resolvePath = (cwd: string, target: string): string => {
   const raw = (target ?? "").trim();
 
   let base: string[];
@@ -123,10 +121,10 @@ export function resolvePath(cwd: string, target: string): string {
   const combined = [...base, ...rest.split("/")];
   const normalized = normalizeSegments(combined);
   return "/" + normalized.join("/");
-}
+};
 
 /** Look up a node by absolute path. Returns null if any segment is missing. */
-export function getNode(root: VfsDir, absPath: string): VfsNode | null {
+export const getNode = (root: VfsDir, absPath: string): VfsNode | null => {
   const parts = absPath.split("/").filter(Boolean);
   let node: VfsNode = root;
   for (const part of parts) {
@@ -136,24 +134,22 @@ export function getNode(root: VfsDir, absPath: string): VfsNode | null {
     node = child;
   }
   return node;
-}
+};
 
 /** Sorted child names of a directory, directories first then files. */
-export function listChildren(dir: VfsDir): { dirs: string[]; files: string[] } {
-  const dirs: string[] = [];
-  const files: string[] = [];
-  for (const [name, node] of Object.entries(dir.children)) {
-    if (node.type === "dir") dirs.push(name);
-    else files.push(name);
-  }
-  dirs.sort();
-  files.sort();
-  return { dirs, files };
-}
+export const listChildren = (dir: VfsDir): { dirs: string[]; files: string[] } => {
+  const entries = Object.entries(dir.children);
+  const namesOfType = (type: VfsNode["type"]) =>
+    entries
+      .filter(([, node]) => node.type === type)
+      .map(([name]) => name)
+      .sort();
+  return { dirs: namesOfType("dir"), files: namesOfType("file") };
+};
 
 /** Turn an absolute path into a display path, shortening the home dir to `~`. */
-export function displayPath(absPath: string): string {
+export const displayPath = (absPath: string): string => {
   if (absPath === HOME_PATH) return "~";
   if (absPath.startsWith(HOME_PATH + "/")) return "~" + absPath.slice(HOME_PATH.length);
   return absPath === "" ? "/" : absPath;
-}
+};

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { parseCv } from "@/modules/cv";
+
 import { readContent } from "@/modules/content";
+import { parseCv } from "@/modules/cv";
 import { WRITINGS_ENABLED } from "@/modules/features";
 import type { ContentEntry } from "@/modules/vfs";
 
@@ -24,6 +25,19 @@ describe("parseCv — real content", () => {
     expect(roku.body.length).toBeGreaterThanOrEqual(1);
     expect(roku.body.join(" ")).toMatch(/Partner Platform/);
     expect(roku.body.join(" ")).toMatch(/\*\*WebRTC\*\*/); // bold markers preserved for highlighting
+  });
+
+  it("takes the name from the README heading", () => {
+    expect(cv.name).toBe("Nandor Szentpeteri");
+  });
+
+  it("takes the headline from the bold line under it", () => {
+    expect(cv.headline).toBe("Senior Software Engineer @ Roku · Leeds, UK");
+  });
+
+  it("keeps the name and headline out of the bio", () => {
+    expect(cv.bio.join(" ")).not.toContain(cv.name);
+    expect(cv.bio.join(" ")).not.toContain(cv.headline);
   });
 
   it("parses contact details", () => {
@@ -85,6 +99,17 @@ describe("parseCv — robustness", () => {
     expect(cv.roles).toEqual([]);
     expect(cv.badges).toEqual([]);
     expect(cv.bio).toEqual([]);
+  });
+
+  it("falls back to empty strings when the README is missing", () => {
+    const cv = parseCv([]);
+    expect(cv.name).toBe("");
+    expect(cv.headline).toBe("");
+  });
+
+  it("ignores a second heading when picking the name", () => {
+    const cv = parseCv([{ path: "README.md", content: "# First\n\n**A headline**\n\n# Second" }]);
+    expect(cv.name).toBe("First");
   });
 
   it("keeps role prose as paragraphs, split on blank lines", () => {

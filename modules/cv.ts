@@ -29,6 +29,10 @@ export type Contact = {
 export type Cert = { text: string; url?: string };
 
 export type CvData = {
+  /** The `# Heading` of README.md — the one place the name is written down. */
+  name: string;
+  /** The `**bold**` line under it, e.g. "Senior Software Engineer @ Roku · Leeds, UK". */
+  headline: string;
   bio: string[];
   badges: string[];
   roles: Role[];
@@ -58,12 +62,25 @@ const blocks = (content: string): string[] =>
     .map((b) => b.trim())
     .filter(Boolean);
 
-function parseReadme(content: string): { bio: string[]; badges: string[] } {
+type Readme = { name: string; headline: string; bio: string[]; badges: string[] };
+
+const parseReadme = (content: string): Readme => {
   const bio: string[] = [];
+  let name = "";
+  let headline = "";
   let badges: string[] = [];
   for (const block of blocks(content)) {
-    if (block.startsWith("#")) continue; // name heading
-    if (/^\*\*.*\*\*$/.test(block)) continue; // headline
+    const heading = /^#\s+(.+)/.exec(block);
+    if (heading) {
+      name = name || heading[1].trim();
+      continue;
+    }
+    if (block.startsWith("#")) continue; // deeper heading
+    const bold = /^\*\*(.*)\*\*$/.exec(block);
+    if (bold) {
+      headline = headline || bold[1].trim();
+      continue;
+    }
     const codes = [...block.matchAll(/`([^`]+)`/g)].map((m) => m[1]);
     // a line made up only of `code` tokens (and separators) is the badge row
     if (codes.length >= 2 && block.replace(/`[^`]+`/g, "").replace(/[·•\s]/g, "") === "") {
@@ -72,10 +89,10 @@ function parseReadme(content: string): { bio: string[]; badges: string[] } {
     }
     bio.push(unwrap(block));
   }
-  return { bio, badges };
-}
+  return { name, headline, bio, badges };
+};
 
-function parseWork(content: string): Role[] {
+const parseWork = (content: string): Role[] => {
   const roles: Role[] = [];
   let cur: Role | null = null;
   let para = "";
@@ -108,9 +125,9 @@ function parseWork(content: string): Role[] {
   flush();
   if (cur) roles.push(cur);
   return roles;
-}
+};
 
-function parseContact(content: string): Contact {
+const parseContact = (content: string): Contact => {
   const map: Record<string, string> = {};
   const prose: string[] = [];
   for (const raw of content.split("\n")) {
@@ -130,9 +147,9 @@ function parseContact(content: string): Contact {
     location: map.location ?? "",
     tagline: prose.join(" "),
   };
-}
+};
 
-function parseSkills(content: string): SkillGroup[] {
+const parseSkills = (content: string): SkillGroup[] => {
   const groups: SkillGroup[] = [];
   let cur: SkillGroup | null = null;
   for (const raw of content.split("\n")) {
@@ -149,9 +166,9 @@ function parseSkills(content: string): SkillGroup[] {
   }
   if (cur) groups.push(cur);
   return groups;
-}
+};
 
-function parsePost(content: string): Post {
+const parsePost = (content: string): Post => {
   const title = (/^#\s+(.+)/m.exec(content)?.[1] ?? "").trim();
   let tag = "";
   let blurb = "";
@@ -165,7 +182,7 @@ function parsePost(content: string): Post {
     if (!blurb && !block.startsWith("-") && !block.startsWith("`")) blurb = unwrap(block);
   }
   return { title, tag, blurb };
-}
+};
 
 /** A trailing `· [label](url)` on a cert bullet is the issuer's verification link. */
 const CERT_LINK = /\s*[·•]\s*\[[^\]]+\]\(([^)]+)\)\s*$/;
@@ -177,40 +194,42 @@ const parseCert = (bullet: string): Cert => {
     : { text: stripInline(bullet) };
 };
 
-function parseCerts(content: string): Cert[] {
+const parseCerts = (content: string): Cert[] => {
   const certs: Cert[] = [];
   for (const raw of content.split("\n")) {
     const bullet = /^-\s+(.+)/.exec(raw.replace(/\r$/, ""));
     if (bullet) certs.push(parseCert(bullet[1]));
   }
   return certs;
-}
+};
 
-function parseList(content: string): string[] {
+const parseList = (content: string): string[] => {
   const out: string[] = [];
   for (const raw of content.split("\n")) {
     const b = /^-\s+(.+)/.exec(raw);
     if (b) out.push(stripInline(b[1]));
   }
   return out;
-}
+};
 
-function parseParagraph(content: string): string {
+const parseParagraph = (content: string): string => {
   for (const block of blocks(content)) {
     if (block.startsWith("#")) continue;
     return unwrap(block);
   }
   return "";
-}
+};
 
-export function parseCv(entries: ContentEntry[]): CvData {
+export const parseCv = (entries: ContentEntry[]): CvData => {
   const map = Object.fromEntries(entries.map((e) => [e.path, e.content]));
-  const { bio, badges } = parseReadme(map["README.md"] ?? "");
+  const { name, headline, bio, badges } = parseReadme(map["README.md"] ?? "");
   const posts = entries
     .filter((e) => e.path.startsWith("writings/") && !e.path.endsWith("README.md"))
     .sort((a, b) => a.path.localeCompare(b.path))
     .map((e) => parsePost(e.content));
   return {
+    name,
+    headline,
     bio,
     badges,
     roles: parseWork(map["work.md"] ?? ""),
@@ -222,4 +241,4 @@ export function parseCv(entries: ContentEntry[]): CvData {
     interests: parseParagraph(map["interests.md"] ?? ""),
     contact: parseContact(map["contact.md"] ?? ""),
   };
-}
+};

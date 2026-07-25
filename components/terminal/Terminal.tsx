@@ -1,17 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  buildVfs,
-  displayPath,
-  HOME_PATH,
-  type ContentEntry,
-} from "@/modules/vfs";
-import { runCommand, complete, type OutputLine } from "@/modules/commands";
-import TerminalLine from "./TerminalLine";
-import Less from "./Less";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import { runCommand, complete, type Identity, type OutputLine } from "@/modules/commands";
+import { buildVfs, displayPath, HOME_PATH, type ContentEntry } from "@/modules/vfs";
 import { PALETTE, TEXT, fade } from "@/theme/palette";
+
+import { Less } from "./Less";
+import { TerminalLine } from "./TerminalLine";
 
 const BANNER: OutputLine[] = [
   { text: "nandor-os v13.2 (c) 2026 — welcome.", color: "faint" },
@@ -21,7 +18,13 @@ const BANNER: OutputLine[] = [
 
 type LogLine = OutputLine & { key: number };
 
-export default function Terminal({ entries }: { entries: ContentEntry[] }) {
+interface TerminalProps {
+  entries: ContentEntry[];
+  /** Name, headline and contact details, parsed from content/*.md at build time. */
+  identity: Identity;
+}
+
+export const Terminal = ({ entries, identity }: TerminalProps) => {
   const router = useRouter();
   const vfs = useMemo(() => buildVfs(entries), [entries]);
 
@@ -38,6 +41,7 @@ export default function Terminal({ entries }: { entries: ContentEntry[] }) {
   const history = useRef<string[]>([]);
   const histIndex = useRef(-1);
   const keySeq = useRef(BANNER.length);
+  const navTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pager, setPager] = useState<{ title: string; lines: OutputLine[] } | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -51,15 +55,22 @@ export default function Terminal({ entries }: { entries: ContentEntry[] }) {
   };
 
   const pushLines = (incoming: OutputLine[]) => {
-    setLines((prev) => [
-      ...prev,
-      ...incoming.map((l) => ({ ...l, key: keySeq.current++ })),
-    ]);
+    // Keys are taken before the updater runs: React invokes updaters twice in
+    // StrictMode, and a `keySeq.current++` inside one would burn two keys per
+    // line and leave the counter ahead of the log.
+    const keyed = incoming.map((l) => ({ ...l, key: keySeq.current++ }));
+    setLines((prev) => [...prev, ...keyed]);
   };
 
   useEffect(() => {
     if (boxRef.current) boxRef.current.scrollTop = boxRef.current.scrollHeight;
   }, [lines]);
+
+  // The `gui` command navigates on a delay so its "launching…" line is readable;
+  // if the component goes away first, the pending push has to go with it.
+  useEffect(() => () => {
+    if (navTimer.current) clearTimeout(navTimer.current);
+  }, []);
 
   const submit = () => {
     const raw = val;
@@ -71,7 +82,7 @@ export default function Terminal({ entries }: { entries: ContentEntry[] }) {
     histIndex.current = -1;
     setCaretPos(0);
 
-    const result = runCommand(vfs, { cwd }, raw, prevCwd.current);
+    const result = runCommand(vfs, { cwd, identity }, raw, prevCwd.current);
 
     if (result.clear) {
       setLines([]);
@@ -88,7 +99,8 @@ export default function Terminal({ entries }: { entries: ContentEntry[] }) {
     }
     if (result.pager) setPager(result.pager);
     if (result.navigate) {
-      setTimeout(() => router.push(result.navigate as string), 500);
+      const destination = result.navigate;
+      navTimer.current = setTimeout(() => router.push(destination), 500);
     }
   };
 
@@ -97,7 +109,9 @@ export default function Terminal({ entries }: { entries: ContentEntry[] }) {
       submit();
       return;
     }
-    if (e.key === "Tab") {
+    // Tab completes, but Shift+Tab is left alone: swallowing it too would trap
+    // keyboard users in the input with no way back out of the page (WCAG 2.1.2).
+    if (e.key === "Tab" && !e.shiftKey) {
       e.preventDefault();
       const res = complete(vfs, cwd, val);
       if (res.replacement && res.replacement !== val) {
@@ -142,14 +156,20 @@ export default function Terminal({ entries }: { entries: ContentEntry[] }) {
 
   // Track the mouse across the whole window so the border ring lights up as the
   // cursor *approaches* the terminal from outside, not only once it's inside.
+  // Restyling on every mousemove repaints far more often than the display can
+  // show, so the work is coalesced onto one animation frame.
   useEffect(() => {
-    const onMove = (e: MouseEvent) => {
+    let frame = 0;
+    let pending: { x: number; y: number } | null = null;
+
+    const paint = () => {
+      frame = 0;
       const wrap = wrapRef.current;
       const ring = ringRef.current;
-      if (!wrap || !ring) return;
+      if (!wrap || !ring || !pending) return;
       const r = wrap.getBoundingClientRect();
-      const x = e.clientX - r.left;
-      const y = e.clientY - r.top;
+      const x = pending.x - r.left;
+      const y = pending.y - r.top;
       const inX = Math.min(Math.abs(x), Math.abs(x - r.width));
       const inY = Math.min(Math.abs(y), Math.abs(y - r.height));
       const inside = x >= 0 && x <= r.width && y >= 0 && y <= r.height;
@@ -161,15 +181,28 @@ export default function Terminal({ entries }: { entries: ContentEntry[] }) {
         y,
       )}px, ${PALETTE.glow}, ${fade(PALETTE.cyan, 70)} 45%, ${fade(PALETTE.green, 30)} 65%, transparent 80%)`;
     };
+
+    const onMove = (e: MouseEvent) => {
+      pending = { x: e.clientX, y: e.clientY };
+      if (!frame) frame = requestAnimationFrame(paint);
+    };
+
     window.addEventListener("mousemove", onMove);
-    return () => window.removeEventListener("mousemove", onMove);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      if (frame) cancelAnimationFrame(frame);
+    };
   }, []);
 
   return (
     <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
       <div
         ref={wrapRef}
-        onClick={() => inputRef.current?.focus()}
+        // While the pager is up it owns the keyboard; stealing focus back to the
+        // hidden prompt on any click (selecting text, say) would kill q/Escape.
+        onClick={() => {
+          if (!pager) inputRef.current?.focus();
+        }}
         style={{
           position: "relative",
           border: `1px solid ${fade(PALETTE.cyan, 22)}`,
@@ -218,9 +251,19 @@ export default function Terminal({ entries }: { entries: ContentEntry[] }) {
             gap: 4,
           }}
         >
-          {lines.map((ln) => (
-            <TerminalLine key={ln.key} line={ln} />
-          ))}
+          {/* The command log is the whole interactive surface of this page, so it
+              announces itself: without a live region a screen reader hears
+              nothing at all after pressing Enter. */}
+          <div
+            role="log"
+            aria-live="polite"
+            aria-label="terminal output"
+            style={{ display: "flex", flexDirection: "column", gap: 4 }}
+          >
+            {lines.map((ln) => (
+              <TerminalLine key={ln.key} line={ln} />
+            ))}
+          </div>
 
           {/* live prompt */}
           <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap" }}>
@@ -320,7 +363,16 @@ export default function Terminal({ entries }: { entries: ContentEntry[] }) {
           }}
         />
 
-        {pager && <Less title={pager.title} lines={pager.lines} onQuit={() => { setPager(null); inputRef.current?.focus(); }} />}
+        {pager && (
+          <Less
+            title={pager.title}
+            lines={pager.lines}
+            onQuit={() => {
+              setPager(null);
+              inputRef.current?.focus();
+            }}
+          />
+        )}
       </div>
 
       <div style={{ marginTop: 10, flexShrink: 0, fontFamily: "var(--font-mono)", fontSize: 11, color: TEXT.faint, textAlign: "right" }}>
@@ -331,4 +383,4 @@ export default function Terminal({ entries }: { entries: ContentEntry[] }) {
       </div>
     </div>
   );
-}
+};

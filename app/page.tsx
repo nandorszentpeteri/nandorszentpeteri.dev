@@ -1,18 +1,18 @@
-import Terminal from "@/components/terminal/Terminal";
 import { Badges } from "@/components/Badges";
 import { ContactBlock, ContactCompact, ContactTagline } from "@/components/ContactBlock";
-import { TEXT } from "@/theme/palette";
-import NeonBackground from "@/layout/NeonBackground";
-import ViewToggle from "@/layout/ViewToggle";
+import { Terminal } from "@/components/terminal/Terminal";
 import { WhoamiHeader } from "@/components/WhoamiHeader";
+import { NeonBackground } from "@/layout/NeonBackground";
+import { ViewToggle } from "@/layout/ViewToggle";
 import { readContent } from "@/modules/content";
 import { parseCv } from "@/modules/cv";
+import { TEXT } from "@/theme/palette";
 
 export default function Home() {
   // Read at build time; the browser only ever receives the resulting tree.
   const entries = readContent();
   // Same parse the classic page uses, so the pills and contact rows match on both views.
-  const { badges, contact } = parseCv(entries);
+  const { badges, contact, name, headline } = parseCv(entries);
 
   return (
     // Pinned to the viewport: the terminal view always fills the page and the
@@ -43,7 +43,7 @@ export default function Home() {
       >
         {/* identity — layout lives in globals.css so the mobile rule can override it */}
         <div className="home-identity enter">
-          <WhoamiHeader stacked nameSize="clamp(34px,3.4vw,48px)" />
+          <WhoamiHeader name={name} stacked nameSize="clamp(34px,3.4vw,48px)" />
           <div className="home-hide-sm" style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: 13.5, lineHeight: 1.65, color: TEXT.muted }}>
             <p style={{ margin: 0 }}>
               Full-stack software engineer with 13+ years of experience building and shipping web applications. I&apos;ve
@@ -64,7 +64,9 @@ export default function Home() {
 
         {/* terminal */}
         <div className="home-terminal enter" style={{ ["--enter-delay" as string]: ".08s" }}>
-          <Terminal entries={entries} />
+          {/* The shell answers `whoami` / `contact-me` from the same parse, so no
+              address or job title is written down twice. */}
+          <Terminal entries={entries} identity={{ name, headline, contact }} />
         </div>
       </div>
     </div>

@@ -1,29 +1,39 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+
 import type { OutputLine } from "@/modules/commands";
-import TerminalLine from "./TerminalLine";
 import { PALETTE } from "@/theme/palette";
+
+import { TerminalLine } from "./TerminalLine";
+
+interface LessProps {
+  title: string;
+  lines: OutputLine[];
+  onQuit: () => void;
+}
 
 /**
  * A minimal `less`-style pager. Fills the terminal box, shows the file with the
  * same syntax highlighting as `cat`, and quits on `q` / Escape. Arrow keys,
  * PageUp/PageDown and Space/b move around.
  */
-export default function Less({
-  title,
-  lines,
-  onQuit,
-}: {
-  title: string;
-  lines: OutputLine[];
-  onQuit: () => void;
-}) {
+export const Less = ({ title, lines, onQuit }: LessProps) => {
   const ref = useRef<HTMLDivElement>(null);
+  const quitRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     ref.current?.focus();
   }, []);
+
+  // The dialog has exactly two focusable elements; cycle Tab between them so
+  // focus can't escape to the terminal buried underneath (aria-modal promises
+  // as much to assistive tech).
+  const trapTab = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "Tab") return;
+    e.preventDefault();
+    (document.activeElement === ref.current ? quitRef : ref).current?.focus();
+  };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     const el = ref.current;
@@ -71,7 +81,9 @@ export default function Less({
     <div
       style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", background: PALETTE.terminalBg, zIndex: 5 }}
       role="dialog"
+      aria-modal="true"
       aria-label={`Viewing ${title}`}
+      onKeyDown={trapTab}
     >
       <div
         ref={ref}
@@ -97,6 +109,7 @@ export default function Less({
       >
         <span>{title}</span>
         <button
+          ref={quitRef}
           onClick={onQuit}
           style={{ background: "transparent", border: "none", color: PALETTE.terminalBg, font: "inherit", cursor: "pointer", padding: 0 }}
         >
@@ -105,4 +118,4 @@ export default function Less({
       </div>
     </div>
   );
-}
+};

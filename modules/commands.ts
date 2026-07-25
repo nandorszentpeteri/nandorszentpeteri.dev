@@ -5,10 +5,10 @@
  * is exactly why it's easy to unit-test.
  */
 
+import type { Contact } from "./cv";
 import { WRITINGS_ENABLED } from "./features";
 import {
   VfsDir,
-  VfsNode,
   getNode,
   isDir,
   isFile,
@@ -33,8 +33,16 @@ export type Segment = { text: string; color?: LineColor; bold?: boolean };
  */
 export type OutputLine = { text: string; color?: LineColor; segments?: Segment[] };
 
+/**
+ * Who the shell says it is. Parsed out of `content/*.md` and handed in, so
+ * `whoami` and `contact-me` can't drift from the pages or the CV — and so no
+ * address is hardcoded into the bundle behind the one contact.md publishes.
+ */
+export type Identity = { name: string; headline: string; contact: Contact };
+
 export type ShellState = {
   cwd: string;
+  identity: Identity;
 };
 
 export type CommandResult = {
@@ -93,9 +101,15 @@ export const COMMANDS = [
 
 const c = (text: string, color?: LineColor): OutputLine => ({ text, color });
 
-function notFound(cmd: string): OutputLine[] {
-  return [c(`command not found: ${cmd} — try "help"`, "pink")];
-}
+const notFound = (cmd: string): OutputLine[] => [c(`command not found: ${cmd} — try "help"`, "pink")];
+
+/**
+ * A trailing slash asserts "this is a directory". A real shell errors on
+ * `cat work.md/` rather than quietly reading the file, and so do we.
+ */
+const assertsDir = (target: string) => target.trim().endsWith("/");
+
+const notADir = (cmd: string, target: string): OutputLine[] => [c(`${cmd}: ${target}: not a directory`, "pink")];
 
 const shortcutWords = [
   "about",
@@ -108,78 +122,84 @@ const shortcutWords = [
   "contact",
 ];
 
-function helpLines(): OutputLine[] {
-  return [
-    c("bash-ish. real commands, real filesystem. try these:", "dim"),
-    c(""),
-    c("  whoami           who is this guy", "text"),
-    c("  ls [path]        list a directory", "text"),
-    c("  cd [path]        change directory  (cd .. , cd ~ , cd -)", "text"),
-    c("  cat <file>       print a file", "text"),
-    c("  less <file>      page through a file  (q to quit)", "text"),
-    c("  tree [path]      show the tree", "text"),
-    c("  pwd              where am I", "text"),
-    c("  contact-me       how to reach me", "text"),
-    c("  aliases          list the friendly shortcuts", "text"),
-    c("  clear            wipe the screen", "text"),
-    c("  gui              open the classic (no-terminal) page", "cyan"),
-    c(""),
-    c("shortcuts for the impatient (see `aliases`):", "dim"),
-    c(`  ${shortcutWords.join(" · ")}`, "faint"),
-    c(""),
-    c("tip: Tab completes, ↑/↓ walk history. ...and maybe a hidden one or two.", "faint"),
-  ];
-}
+const helpLines = (): OutputLine[] => [
+  c("bash-ish. real commands, real filesystem. try these:", "dim"),
+  c(""),
+  c("  whoami           who is this guy", "text"),
+  c("  ls [path]        list a directory", "text"),
+  c("  cd [path]        change directory  (cd .. , cd ~ , cd -)", "text"),
+  c("  cat <file>       print a file", "text"),
+  c("  less <file>      page through a file  (q to quit)", "text"),
+  c("  tree [path]      show the tree", "text"),
+  c("  pwd              where am I", "text"),
+  c("  contact-me       how to reach me", "text"),
+  c("  aliases          list the friendly shortcuts", "text"),
+  c("  clear            wipe the screen", "text"),
+  c("  gui              open the classic (no-terminal) page", "cyan"),
+  c(""),
+  c("shortcuts for the impatient (see `aliases`):", "dim"),
+  c(`  ${shortcutWords.join(" · ")}`, "faint"),
+  c(""),
+  c("tip: Tab completes, ↑/↓ walk history. ...and maybe a hidden one or two.", "faint"),
+];
 
-function aliasLines(): OutputLine[] {
-  const seen = new Set<string>();
-  const lines: OutputLine[] = [
-    c("aliases — a friendly word that just opens a file:", "dim"),
-    c(""),
-  ];
-  for (const [name, target] of Object.entries(ALIASES)) {
-    // Skip duplicate targets' noise a little, but still show each alias.
-    const key = name;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    lines.push(c(`  ${name.padEnd(12)} cat ${target}`, "cyan"));
-  }
-  lines.push(c(""));
-  lines.push(c('so typing "work" is the same as "cat ~/work/README.md".', "faint"));
-  return lines;
-}
+const aliasLines = (): OutputLine[] => [
+  c("aliases — a friendly word that just opens a file:", "dim"),
+  c(""),
+  ...Object.entries(ALIASES).map(([name, target]) => c(`  ${name.padEnd(12)} cat ${target}`, "cyan")),
+  c(""),
+  // Quoting ALIASES rather than a literal path: the example can't outlive a rename.
+  c(`so typing "work" is the same as "cat ${ALIASES.work}".`, "faint"),
+];
 
 /**
  * Turn markdown into lightly-coloured terminal lines. We don't render real
  * markdown here — we keep it looking like a file being catted, just readable:
  * headings pop, quotes dim, inline `**` and backticks are stripped.
  */
-/** Split inline markdown (**bold**, `code`, [links](url), bare URLs) into
- *  coloured segments over a base colour. */
-export function parseInline(text: string, base: LineColor = "text"): Segment[] {
-  const segs: Segment[] = [];
-  const re = /(\*\*[^*]+\*\*)|(`[^`]+`)|(\[[^\]]+\]\([^)]*\))|((?:https?:\/\/|www\.)[^\s)]+)/g;
-  let last = 0;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(text)) !== null) {
-    if (m.index > last) segs.push({ text: text.slice(last, m.index), color: base });
-    const tok = m[0];
-    if (tok.startsWith("**")) {
-      segs.push({ text: tok.slice(2, -2), color: base, bold: true });
-    } else if (tok.startsWith("`")) {
-      segs.push({ text: tok.slice(1, -1), color: "green" });
-    } else if (tok.startsWith("[")) {
-      const lm = /\[([^\]]+)\]\(([^)]*)\)/.exec(tok);
-      segs.push({ text: lm ? lm[1] : tok, color: "pink" });
-    } else {
-      segs.push({ text: tok, color: "cyan" });
+
+/** Bold, inline code, `[label](url)` links and bare URLs — the four inline forms
+ *  both the rendered and the source view care about. A fresh regex per call
+ *  because `lastIndex` on a shared /g literal would leak between callers. */
+const inlineRe = () => /(\*\*[^*]+\*\*)|(`[^`]+`)|(\[[^\]]+\]\([^)]*\))|((?:https?:\/\/|www\.)[^\s)]+)/g;
+
+/**
+ * Walk the inline tokens of a line, leaving it to the caller to decide what each
+ * token becomes. `parseInline` (rendered) and `highlightInlineSource` (raw
+ * source) differ only in that decision, so this is the whole shared machinery.
+ */
+const tokenize =
+  (toSegment: (token: string, base: LineColor) => Segment) =>
+  (text: string, base: LineColor = "text"): Segment[] => {
+    const segs: Segment[] = [];
+    const re = inlineRe();
+    let last = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > last) segs.push({ text: text.slice(last, m.index), color: base });
+      segs.push(toSegment(m[0], base));
+      last = m.index + m[0].length;
     }
-    last = m.index + tok.length;
-  }
-  if (last < text.length) segs.push({ text: text.slice(last), color: base });
-  if (segs.length === 0) segs.push({ text, color: base });
-  return segs;
-}
+    if (last < text.length) segs.push({ text: text.slice(last), color: base });
+    if (segs.length === 0) segs.push({ text, color: base });
+    return segs;
+  };
+
+/** Split inline markdown (**bold**, `code`, [links](url), bare URLs) into
+ *  coloured segments over a base colour, dropping the markers. */
+export const parseInline = tokenize((tok, base) => {
+  if (tok.startsWith("**")) return { text: tok.slice(2, -2), color: base, bold: true };
+  if (tok.startsWith("`")) return { text: tok.slice(1, -1), color: "green" };
+  if (tok.startsWith("[")) return { text: /\[([^\]]+)\]/.exec(tok)?.[1] ?? tok, color: "pink" };
+  return { text: tok, color: "cyan" };
+});
+
+/** Inline highlighter that PRESERVES the markdown markers (source view). */
+const highlightInlineSource = tokenize((tok, base) => {
+  if (tok.startsWith("**")) return { text: tok, color: base, bold: true };
+  if (tok.startsWith("`")) return { text: tok, color: "green" };
+  return { text: tok, color: "cyan" }; // links + bare urls
+});
 
 const joinSegs = (segs: Segment[]) => segs.map((s) => s.text).join("");
 
@@ -188,8 +208,8 @@ const joinSegs = (segs: Segment[]) => segs.map((s) => s.text).join("");
  * it keeps a "file being catted" feel while colouring headings, bold, inline
  * code, links, quotes, bullets and indented blocks. Shared by `cat` and `less`.
  */
-export function renderMarkdownLines(content: string): OutputLine[] {
-  return content
+export const renderMarkdownLines = (content: string): OutputLine[] =>
+  content
     .replace(/\n+$/, "")
     .split("\n")
     .map((raw): OutputLine => {
@@ -227,53 +247,6 @@ export function renderMarkdownLines(content: string): OutputLine[] {
       const segs = parseInline(line, "text");
       return { text: joinSegs(segs), color: "text", segments: segs };
     });
-}
-
-function cmdLs(root: VfsDir, cwd: string, args: string[]): OutputLine[] {
-  const target = args[0] ?? ".";
-  const abs = resolvePath(cwd, target);
-  const node = getNode(root, abs);
-  if (!node) return [c(`ls: ${target}: no such file or directory`, "pink")];
-  if (isFile(node)) return [c(node.name, "text")];
-  const { dirs, files } = listChildren(node);
-  if (dirs.length === 0 && files.length === 0) return [c("(empty)", "faint")];
-  const out: OutputLine[] = [];
-  for (const d of dirs) out.push(c(d + "/", "cyan"));
-  for (const f of files) out.push(c(f, "text"));
-  return out;
-}
-
-function cmdCd(
-  root: VfsDir,
-  state: ShellState,
-  args: string[],
-): { cwd: string; lines: OutputLine[] } {
-  const target = args[0] ?? "~";
-  const abs = resolvePath(state.cwd, target);
-  const node = getNode(root, abs);
-  if (!node) return { cwd: state.cwd, lines: [c(`cd: ${target}: no such file or directory`, "pink")] };
-  if (isFile(node)) return { cwd: state.cwd, lines: [c(`cd: ${target}: not a directory`, "pink")] };
-  return { cwd: abs, lines: [] };
-}
-
-/** Inline highlighter that PRESERVES the markdown markers (source view). */
-function highlightInlineSource(text: string, base: LineColor): Segment[] {
-  const segs: Segment[] = [];
-  const re = /(\*\*[^*]+\*\*)|(`[^`]+`)|(\[[^\]]+\]\([^)]*\))|((?:https?:\/\/|www\.)[^\s)]+)/g;
-  let last = 0;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(text)) !== null) {
-    if (m.index > last) segs.push({ text: text.slice(last, m.index), color: base });
-    const tok = m[0];
-    if (tok.startsWith("**")) segs.push({ text: tok, color: base, bold: true });
-    else if (tok.startsWith("`")) segs.push({ text: tok, color: "green" });
-    else segs.push({ text: tok, color: "cyan" }); // links + bare urls
-    last = m.index + tok.length;
-  }
-  if (last < text.length) segs.push({ text: text.slice(last), color: base });
-  if (segs.length === 0) segs.push({ text, color: base });
-  return segs;
-}
 
 /**
  * `cat` view: terminal-like syntax highlighting of the *raw* markdown source.
@@ -281,40 +254,66 @@ function highlightInlineSource(text: string, base: LineColor): Segment[] {
  * `bat` or an editor shows a file — no rendering. The fully rendered view is
  * `less`'s job (see `renderMarkdownLines`).
  */
-export function highlightMarkdownSource(content: string): OutputLine[] {
-  return content
+export const highlightMarkdownSource = (content: string): OutputLine[] =>
+  content
     .replace(/\n+$/, "")
     .split("\n")
     .map((raw): OutputLine => {
       const line = raw.replace(/\r$/, "");
       if (/^( {4}|\t)/.test(line)) return { text: line, color: "green" };
       if (/^#{1,6}\s/.test(line)) {
-        return { text: line, color: "cyan", segments: highlightInlineSource(line, "cyan").map((s) => ({ ...s, bold: true })) };
+        return {
+          text: line,
+          color: "cyan",
+          segments: highlightInlineSource(line, "cyan").map((s) => ({ ...s, bold: true })),
+        };
       }
       if (/^>\s?/.test(line)) return { text: line, color: "dim", segments: highlightInlineSource(line, "dim") };
       const bullet = /^(\s*[-*]\s+)(.*)$/.exec(line);
       if (bullet) {
-        return { text: line, color: "text", segments: [{ text: bullet[1], color: "purple" }, ...highlightInlineSource(bullet[2], "text")] };
+        return {
+          text: line,
+          color: "text",
+          segments: [{ text: bullet[1], color: "purple" }, ...highlightInlineSource(bullet[2], "text")],
+        };
       }
       if (line.trim() === "") return { text: "", color: "text" };
       return { text: line, color: "text", segments: highlightInlineSource(line, "text") };
     });
-}
 
-function catFile(root: VfsDir, cwd: string, target: string): OutputLine[] {
-  const abs = resolvePath(cwd, target);
+const cmdLs = (root: VfsDir, cwd: string, args: string[]): OutputLine[] => {
+  const target = args[0] ?? ".";
+  const node = getNode(root, resolvePath(cwd, target));
+  if (!node) return [c(`ls: ${target}: no such file or directory`, "pink")];
+  if (isFile(node)) return assertsDir(target) ? notADir("ls", target) : [c(node.name, "text")];
+  const { dirs, files } = listChildren(node);
+  if (dirs.length === 0 && files.length === 0) return [c("(empty)", "faint")];
+  return [...dirs.map((d) => c(d + "/", "cyan")), ...files.map((f) => c(f, "text"))];
+};
+
+const cmdCd = (root: VfsDir, state: ShellState, args: string[]): { cwd: string; lines: OutputLine[] } => {
+  const target = args[0] ?? "~";
+  const abs = resolvePath(state.cwd, target);
   const node = getNode(root, abs);
+  if (!node) return { cwd: state.cwd, lines: [c(`cd: ${target}: no such file or directory`, "pink")] };
+  if (isFile(node)) return { cwd: state.cwd, lines: notADir("cd", target) };
+  return { cwd: abs, lines: [] };
+};
+
+const catFile = (root: VfsDir, cwd: string, target: string): OutputLine[] => {
+  const node = getNode(root, resolvePath(cwd, target));
   if (!node) return [c(`cat: ${target}: no such file or directory`, "pink")];
   if (isDir(node)) return [c(`cat: ${target}: is a directory`, "pink")];
-  return highlightMarkdownSource((node as Extract<VfsNode, { type: "file" }>).content);
-}
+  if (assertsDir(target)) return notADir("cat", target);
+  return highlightMarkdownSource(node.content);
+};
 
-function cmdTree(root: VfsDir, cwd: string, args: string[]): OutputLine[] {
+const cmdTree = (root: VfsDir, cwd: string, args: string[]): OutputLine[] => {
   const target = args[0] ?? ".";
   const abs = resolvePath(cwd, target);
   const node = getNode(root, abs);
   if (!node) return [c(`tree: ${target}: no such file or directory`, "pink")];
-  if (isFile(node)) return [c(node.name, "text")];
+  if (isFile(node)) return assertsDir(target) ? notADir("tree", target) : [c(node.name, "text")];
 
   const out: OutputLine[] = [c(displayPath(abs), "cyan")];
   const walk = (dir: VfsDir, prefix: string) => {
@@ -329,22 +328,31 @@ function cmdTree(root: VfsDir, cwd: string, args: string[]): OutputLine[] {
   };
   walk(node, "");
   return out;
-}
+};
+
+const contactLines = ({ contact }: Identity): OutputLine[] => [
+  c(`${"email".padEnd(11)}${contact.email}`, "cyan"),
+  c(`${"linkedin".padEnd(11)}${contact.linkedin}`, "pink"),
+  c(`${"github".padEnd(11)}${contact.github}`, "purple"),
+  c(`${"location".padEnd(11)}${contact.location}`, "dim"),
+  c("open to interesting conversations — say hi.", "faint"),
+];
 
 /**
  * Evaluate one line of input. `prevCwd` is used to support `cd -`.
  */
-export function runCommand(
+export const runCommand = (
   root: VfsDir,
   state: ShellState,
   input: string,
   prevCwd?: string,
-): CommandResult {
+): CommandResult => {
   const raw = input.trim();
   const base: CommandResult = { lines: [], cwd: state.cwd };
   if (raw === "") return base;
 
   const lower = raw.toLowerCase();
+  const { identity } = state;
 
   // Whole-line special cases first.
   if (GUI_WORDS.has(lower)) {
@@ -356,7 +364,7 @@ export function runCommand(
       lines: [
         c("[sudo] password for recruiter: ********", "dim"),
         c("permission granted.", "green"),
-        c("→ hello@nandorszentpeteri.dev", "cyan"),
+        c(`→ ${identity.contact.email}`, "cyan"),
       ],
     };
   }
@@ -387,8 +395,8 @@ export function runCommand(
       return {
         ...base,
         lines: [
-          c("Nandor Szentpeteri", "cyan"),
-          c("Senior Software Engineer @ Roku · Leeds, UK"),
+          c(identity.name, "cyan"),
+          c(identity.headline),
           c("Full-stack, 13+ years: gaming, fitness, streaming, smart home.", "dim"),
           c("Every layer of the stack — React/Next.js front-ends to", "dim"),
           c("microservices and CI/CD. Currently deep in agentic AI.", "dim"),
@@ -397,15 +405,7 @@ export function runCommand(
       };
     case "contact-me":
     case "contactme":
-      return {
-        ...base,
-        lines: [
-          c("email      hello@nandorszentpeteri.dev", "cyan"),
-          c("linkedin   linkedin.com/in/nandorszentpeteri", "pink"),
-          c("location   Leeds, UK", "dim"),
-          c("open to interesting conversations — say hi.", "faint"),
-        ],
-      };
+      return { ...base, lines: contactLines(identity) };
     case "aliases":
     case "alias":
       return { ...base, lines: aliasLines() };
@@ -429,9 +429,7 @@ export function runCommand(
     }
     case "cat": {
       if (args.length === 0) return { ...base, lines: [c("usage: cat <file>", "faint")] };
-      const lines: OutputLine[] = [];
-      for (const a of args) lines.push(...catFile(root, state.cwd, a));
-      return { ...base, lines };
+      return { ...base, lines: args.flatMap((a) => catFile(root, state.cwd, a)) };
     }
     case "less":
     case "more": {
@@ -440,12 +438,10 @@ export function runCommand(
       const node = getNode(root, abs);
       if (!node) return { ...base, lines: [c(`${cmd}: ${args[0]}: no such file or directory`, "pink")] };
       if (isDir(node)) return { ...base, lines: [c(`${cmd}: ${args[0]}: is a directory`, "pink")] };
+      if (assertsDir(args[0])) return { ...base, lines: notADir(cmd, args[0]) };
       return {
         ...base,
-        pager: {
-          title: displayPath(abs),
-          lines: renderMarkdownLines((node as Extract<VfsNode, { type: "file" }>).content),
-        },
+        pager: { title: displayPath(abs), lines: renderMarkdownLines(node.content) },
       };
     }
     case "tree":
@@ -460,14 +456,27 @@ export function runCommand(
     default:
       return { ...base, lines: notFound(cmd) };
   }
-}
+};
+
+const commonPrefix = (strings: string[]): string =>
+  strings.reduce((prefix, s) => {
+    let i = 0;
+    while (i < prefix.length && i < s.length && prefix[i] === s[i]) i++;
+    return prefix.slice(0, i);
+  }, strings[0] ?? "");
+
+const fill = (matches: string[]): string | undefined => (matches.length === 0 ? undefined : commonPrefix(matches));
 
 /**
  * Tab-completion. Completes the command word at position 0, or a path for the
  * argument of a filesystem command. Returns candidate completions and, when
  * there's a common prefix to fill, the text the input should become.
  */
-export function complete(root: VfsDir, cwd: string, input: string): { completions: string[]; replacement?: string } {
+export const complete = (
+  root: VfsDir,
+  cwd: string,
+  input: string,
+): { completions: string[]; replacement?: string } => {
   const endsWithSpace = /\s$/.test(input);
   const tokens = input.split(/\s+/).filter(Boolean);
 
@@ -476,7 +485,7 @@ export function complete(root: VfsDir, cwd: string, input: string): { completion
     const prefix = tokens[0]?.toLowerCase() ?? "";
     const pool = [...COMMANDS, ...Object.keys(ALIASES)];
     const matches = Array.from(new Set(pool.filter((cmd) => cmd.startsWith(prefix)))).sort();
-    return { completions: matches, replacement: fill(prefix, matches) };
+    return { completions: matches, replacement: fill(matches) };
   }
 
   // Completing a path argument.
@@ -485,8 +494,7 @@ export function complete(root: VfsDir, cwd: string, input: string): { completion
   const dirPart = slash >= 0 ? partial.slice(0, slash + 1) : "";
   const namePart = slash >= 0 ? partial.slice(slash + 1) : partial;
 
-  const dirAbs = resolvePath(cwd, dirPart || ".");
-  const dirNode = getNode(root, dirAbs);
+  const dirNode = getNode(root, resolvePath(cwd, dirPart || "."));
   if (!isDir(dirNode)) return { completions: [] };
 
   const { dirs, files } = listChildren(dirNode);
@@ -494,27 +502,10 @@ export function complete(root: VfsDir, cwd: string, input: string): { completion
   const matches = names.filter((n) => n.toLowerCase().startsWith(namePart.toLowerCase()));
   if (matches.length === 0) return { completions: [] };
 
-  const commonName = commonPrefix(matches);
-  const head = tokens.slice(0, -1).join(" ");
-  const replacement = `${head} ${dirPart}${commonName}`;
-  return { completions: matches, replacement };
-}
-
-function fill(prefix: string, matches: string[]): string | undefined {
-  if (matches.length === 0) return undefined;
-  return commonPrefix(matches);
-}
-
-function commonPrefix(strings: string[]): string {
-  if (strings.length === 0) return "";
-  let prefix = strings[0];
-  for (const s of strings.slice(1)) {
-    let i = 0;
-    while (i < prefix.length && i < s.length && prefix[i] === s[i]) i++;
-    prefix = prefix.slice(0, i);
-    if (prefix === "") break;
-  }
-  return prefix;
-}
+  // A trailing space means every token is already complete — dropping the last
+  // one here would swallow the command word and blank the line.
+  const head = (endsWithSpace ? tokens : tokens.slice(0, -1)).join(" ");
+  return { completions: matches, replacement: `${head} ${dirPart}${commonPrefix(matches)}` };
+};
 
 export { HOME_PATH };
