@@ -66,6 +66,16 @@ export const Terminal = ({ entries, identity }: TerminalProps) => {
     if (boxRef.current) boxRef.current.scrollTop = boxRef.current.scrollHeight;
   }, [lines]);
 
+  // Land in the prompt so the page can be typed into straight away — the whole
+  // point of it. Not on touch devices: focusing an input there summons the
+  // on-screen keyboard over half the screen before anyone has asked to type.
+  // preventScroll because the prompt sits below the fold on a short window, and
+  // focus would otherwise jump the page past the identity block.
+  useEffect(() => {
+    if (window.matchMedia("(pointer: coarse)").matches) return;
+    inputRef.current?.focus({ preventScroll: true });
+  }, []);
+
   // The `gui` command navigates on a delay so its "launching…" line is readable;
   // if the component goes away first, the pending push has to go with it.
   useEffect(() => () => {

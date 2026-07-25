@@ -111,6 +111,29 @@ describe("<Terminal />", () => {
     expect(link.getAttribute("href")).toContain("subject=");
   });
 
+  it("focuses the prompt on load so the page can be typed into", () => {
+    renderTerminal();
+    expect(screen.getByLabelText("terminal input")).toHaveFocus();
+  });
+
+  it("leaves focus alone on a touch device, where it would open the keyboard", () => {
+    const desktop = window.matchMedia;
+    window.matchMedia = ((query: string) => ({ ...desktop(query), matches: query.includes("coarse") })) as typeof window.matchMedia;
+    try {
+      renderTerminal();
+      expect(screen.getByLabelText("terminal input")).not.toHaveFocus();
+    } finally {
+      window.matchMedia = desktop;
+    }
+  });
+
+  it("accepts typing without a click first", async () => {
+    const user = userEvent.setup();
+    renderTerminal();
+    await user.keyboard("pwd{Enter}");
+    expect(await screen.findByText("/home/nandor")).toBeInTheDocument();
+  });
+
   it("announces output through a live region", () => {
     renderTerminal();
     expect(screen.getByRole("log")).toHaveAttribute("aria-live", "polite");
