@@ -52,6 +52,14 @@ describe("parseCv — real content", () => {
     expect(cv.contact.tagline).not.toMatch(/@|linkedin|github|Leeds/);
   });
 
+  it("takes the tagline CTA from the bolded run", () => {
+    expect(cv.contact.taglineCta).toBe("Let's talk.");
+  });
+
+  it("keeps the CTA a substring of the tagline so it can be located", () => {
+    expect(cv.contact.tagline).toContain(cv.contact.taglineCta);
+  });
+
   it("parses skill groups", () => {
     expect(cv.skillGroups.map((g) => g.label)).toEqual(["languages/", "tools/", "devops/"]);
     expect(cv.skillGroups[0].items).toMatch(/TypeScript/);
@@ -99,6 +107,18 @@ describe("parseCv — robustness", () => {
     expect(cv.roles).toEqual([]);
     expect(cv.badges).toEqual([]);
     expect(cv.bio).toEqual([]);
+  });
+
+  it("leaves the tagline CTA empty when nothing is bolded", () => {
+    const cv = parseCv([{ path: "contact.md", content: "# Contact\n\nJust say hi." }]);
+    expect(cv.contact.tagline).toBe("Just say hi.");
+    expect(cv.contact.taglineCta).toBe("");
+  });
+
+  it("strips the bold markers out of the plain tagline", () => {
+    const cv = parseCv([{ path: "contact.md", content: "# Contact\n\nSay **hello** now." }]);
+    expect(cv.contact.tagline).toBe("Say hello now.");
+    expect(cv.contact.taglineCta).toBe("hello");
   });
 
   it("falls back to empty strings when the README is missing", () => {

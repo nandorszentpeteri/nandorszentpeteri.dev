@@ -203,7 +203,7 @@ export default function Classic() {
 
         {/* footer — contact details live in the hero block, not repeated here */}
         <section className="cv-section cv-section-footer">
-          <ContactTagline text={cv.contact.tagline} />
+          <ContactTagline text={cv.contact.tagline} cta={cv.contact.taglineCta} email={cv.contact.email} />
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 30, paddingTop: 24, borderTop: `1px solid ${BORDER.subtle}`, fontFamily: "var(--font-mono)", fontSize: 11, color: TEXT.faint }}>
             <span>© 2026 Nandor Szentpeteri</span>
             <span>built with Next.js · deployed on Vercel</span>

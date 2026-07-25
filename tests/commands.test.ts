@@ -23,6 +23,7 @@ const IDENTITY: Identity = {
     github: "github.com/ada",
     location: "London, UK",
     tagline: "Say hi.",
+    taglineCta: "",
   },
 };
 

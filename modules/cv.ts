@@ -24,6 +24,10 @@ export type Contact = {
   location: string;
   /** The closing prose line of contact.md, shown as the tagline on both views. */
   tagline: string;
+  /** The **bolded** run inside that line — the words that become the mailto
+   *  link. Bolding is how the markdown says "this part is the call to action",
+   *  so the wording can change without touching the component. */
+  taglineCta: string;
 };
 /** A certification, with the issuer's public verification URL when there is one. */
 export type Cert = { text: string; url?: string };
@@ -137,15 +141,18 @@ const parseContact = (content: string): Contact => {
       map[m[1].trim().toLowerCase()] = stripLinks(m[2].trim());
       continue;
     }
-    // anything that isn't a heading or a bullet is the closing tagline
-    if (line.trim() && !line.startsWith("#")) prose.push(stripInline(line.trim()));
+    // anything that isn't a heading or a bullet is the closing tagline. Kept raw
+    // here so the bold marker survives long enough to locate the CTA.
+    if (line.trim() && !line.startsWith("#")) prose.push(line.trim());
   }
+  const closing = prose.join(" ");
   return {
     email: map.email ?? "",
     linkedin: map.linkedin ?? "",
     github: map.github ?? "",
     location: map.location ?? "",
-    tagline: prose.join(" "),
+    tagline: stripInline(closing),
+    taglineCta: stripInline(/\*\*(.+?)\*\*/.exec(closing)?.[1] ?? ""),
   };
 };
 

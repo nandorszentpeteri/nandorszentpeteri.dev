@@ -5,4 +5,4 @@
 - **github** - [github.com/nandorszentpeteri](https://github.com/nandorszentpeteri)
 - **location** - Leeds, UK
 
-Got an interesting problem? Let's talk.
+Got an interesting problem? **Let's talk.**

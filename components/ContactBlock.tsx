@@ -116,16 +116,40 @@ export const ContactCompact = ({ contact }: ContactCompactProps) => {
 
 interface ContactTaglineProps {
   text: string;
+  /** The run of `text` to turn into the mailto — contact.md's **bolded** words. */
+  cta?: string;
+  /** Address the CTA writes to. Without it the tagline stays plain text. */
+  email?: string;
   align?: "left" | "center";
 }
+
+/** Distinct from hire-me's subject: this is the softer, general-enquiry door. */
+const TAGLINE_SUBJECT = "Let's talk";
 
 /**
  * The closing line from contact.md, at the foot of whatever contains it.
  * Centred on the classic page's full-width footer; left-aligned in the
  * terminal view's narrow identity column, where centring leaves it stranded.
+ *
+ * The bolded run becomes a mailto. It stays inside the gradient rather than
+ * taking a link colour of its own — the ramp is the emphasis here, so the
+ * affordance is an underline (see `.tagline-cta`) instead of a colour change.
  */
 // Centring is a margin rather than text-align: the element is width:fit-content
 // so the gradient tracks the text, which means text-align has nothing to act on.
-export const ContactTagline = ({ text, align = "center" }: ContactTaglineProps) => (
-  <div className={`gradient-text tagline${align === "center" ? " tagline-center" : ""}`}>{text}</div>
-);
+export const ContactTagline = ({ text, cta, email, align = "center" }: ContactTaglineProps) => {
+  const className = `gradient-text tagline${align === "center" ? " tagline-center" : ""}`;
+  // Reworded markdown shouldn't be able to break the line — fall back to plain text.
+  const at = cta ? text.indexOf(cta) : -1;
+  if (!cta || !email || at < 0) return <div className={className}>{text}</div>;
+
+  return (
+    <div className={className}>
+      {text.slice(0, at)}
+      <a className="tagline-cta" href={`mailto:${email}?subject=${encodeURIComponent(TAGLINE_SUBJECT)}`}>
+        {cta}
+      </a>
+      {text.slice(at + cta.length)}
+    </div>
+  );
+};

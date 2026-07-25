@@ -59,7 +59,7 @@ export default function Home() {
           <Badges items={badges} className="home-hide-sm" />
           <ContactBlock contact={contact} className="home-hide-sm" />
           <ContactCompact contact={contact} />
-          <ContactTagline text={contact.tagline} align="left" />
+          <ContactTagline text={contact.tagline} cta={contact.taglineCta} email={contact.email} align="left" />
         </div>
 
         {/* terminal */}

@@ -223,6 +223,26 @@ a:hover {
 .tagline-center {
   margin-inline: auto;
 }
+/* The call-to-action inside the tagline. `color: inherit` is load-bearing: the
+   UA stylesheet's link colour beats inheritance and would paint over the
+   transparent fill the parent's background-clip needs to show through.
+   The underline is likewise explicit — `.link`'s currentColor treatment would
+   be transparent here, leaving the link with no affordance at all. */
+.tagline-cta {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--pink) 50%, transparent);
+  text-underline-offset: 4px;
+  transition: text-decoration-color 0.2s;
+}
+.tagline-cta:hover {
+  text-decoration-color: var(--pink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .tagline-cta {
+    transition: none;
+  }
+}
 @media (max-width: 900px) {
   .tagline {
     font-size: 13px;
