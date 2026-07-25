@@ -141,6 +141,23 @@ describe("runCommand — shell built-ins", () => {
     expect(text(r)).toContain(IDENTITY.contact.email);
   });
 
+  it("contact-me makes the email a mailto link", () => {
+    const r = runCommand(root, home, "contact-me");
+    const seg = r.lines.flatMap((l) => l.segments ?? []).find((s) => s.text === IDENTITY.contact.email);
+    expect(seg?.href).toBe(`mailto:${IDENTITY.contact.email}`);
+  });
+
+  it("contact-me links linkedin and github over https", () => {
+    const segs = runCommand(root, home, "contact-me").lines.flatMap((l) => l.segments ?? []);
+    expect(segs.find((s) => s.text === IDENTITY.contact.linkedin)?.href).toBe(`https://${IDENTITY.contact.linkedin}`);
+    expect(segs.find((s) => s.text === IDENTITY.contact.github)?.href).toBe(`https://${IDENTITY.contact.github}`);
+  });
+
+  it("contact-me leaves the location unlinked", () => {
+    const segs = runCommand(root, home, "contact-me").lines.flatMap((l) => l.segments ?? []);
+    expect(segs.find((s) => s.text === IDENTITY.contact.location)?.href).toBeUndefined();
+  });
+
   it("contact-me prints every contact channel", () => {
     const r = runCommand(root, home, "contact-me");
     expect(text(r)).toContain(IDENTITY.contact.linkedin);
@@ -205,6 +222,13 @@ describe("runCommand — aliases & easter eggs", () => {
   it("sudo hire-me hands out the email from the content", () => {
     const r = runCommand(root, home, "sudo hire-me");
     expect(text(r)).toContain(IDENTITY.contact.email);
+  });
+
+  it("sudo hire-me offers a mailto with a prefilled subject", () => {
+    const seg = runCommand(root, home, "sudo hire-me")
+      .lines.flatMap((l) => l.segments ?? [])
+      .find((s) => s.text === IDENTITY.contact.email);
+    expect(seg?.href).toMatch(new RegExp(`^mailto:${IDENTITY.contact.email}\\?subject=.+`));
   });
 });
 
@@ -286,7 +310,41 @@ describe("parseInline", () => {
 
   it("colours links and shows their label", () => {
     const segs = parseInline("see [docs](https://x.dev)");
-    expect(segs).toContainEqual({ text: "docs", color: "pink" });
+    expect(segs).toContainEqual({ text: "docs", color: "pink", href: "https://x.dev" });
+  });
+
+  it("keeps a markdown link's destination as an href", () => {
+    const [link] = parseInline("[docs](https://x.dev)").filter((s) => s.href);
+    expect(link.href).toBe("https://x.dev");
+  });
+
+  it("linkifies a bare email as mailto", () => {
+    const segs = parseInline("write to ada@example.dev today");
+    expect(segs).toContainEqual({ text: "ada@example.dev", color: "cyan", href: "mailto:ada@example.dev" });
+  });
+
+  it("linkifies a bare url", () => {
+    const [link] = parseInline("see https://x.dev now").filter((s) => s.href);
+    expect(link.href).toBe("https://x.dev");
+  });
+
+  it("gives a scheme-less www link an https href", () => {
+    const [link] = parseInline("see www.x.dev now").filter((s) => s.href);
+    expect(link.href).toBe("https://www.x.dev");
+  });
+
+  it("refuses a javascript: destination", () => {
+    const segs = parseInline("[click](javascript:alert(1))");
+    expect(segs.every((s) => s.href === undefined)).toBe(true);
+  });
+
+  it("refuses a data: destination", () => {
+    const segs = parseInline("[click](data:text/html;base64,PHM+)");
+    expect(segs.every((s) => s.href === undefined)).toBe(true);
+  });
+
+  it("leaves plain prose without any href", () => {
+    expect(parseInline("just some words").every((s) => s.href === undefined)).toBe(true);
   });
 });
 

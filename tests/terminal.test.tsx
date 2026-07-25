@@ -83,6 +83,33 @@ describe("<Terminal />", () => {
     expect(await screen.findByText(new RegExp(IDENTITY.contact.email))).toBeInTheDocument();
   });
 
+  it("renders the contact email as a mailto link", async () => {
+    const user = userEvent.setup();
+    renderTerminal();
+    await user.click(screen.getByLabelText("terminal input"));
+    await user.keyboard("contact-me{Enter}");
+    const link = await screen.findByRole("link", { name: IDENTITY.contact.email });
+    expect(link).toHaveAttribute("href", `mailto:${IDENTITY.contact.email}`);
+  });
+
+  it("opens external links in a new tab, but not mailto", async () => {
+    const user = userEvent.setup();
+    renderTerminal();
+    await user.click(screen.getByLabelText("terminal input"));
+    await user.keyboard("contact-me{Enter}");
+    expect(await screen.findByRole("link", { name: IDENTITY.contact.github })).toHaveAttribute("target", "_blank");
+    expect(screen.getByRole("link", { name: IDENTITY.contact.email })).not.toHaveAttribute("target");
+  });
+
+  it("makes the hire-me address a mailto link", async () => {
+    const user = userEvent.setup();
+    renderTerminal();
+    await user.click(screen.getByLabelText("terminal input"));
+    await user.keyboard("hire-me{Enter}");
+    const link = await screen.findByRole("link", { name: IDENTITY.contact.email });
+    expect(link.getAttribute("href")).toContain("subject=");
+  });
+
   it("announces output through a live region", () => {
     renderTerminal();
     expect(screen.getByRole("log")).toHaveAttribute("aria-live", "polite");

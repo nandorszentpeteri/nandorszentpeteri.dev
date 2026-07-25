@@ -24,17 +24,36 @@ export const TerminalLine = ({ line, size = 13 }: TerminalLineProps) => {
 
   return (
     <div style={base}>
-      {line.segments.map((seg, i) => (
-        <span
-          key={i}
-          style={{
-            color: LINE_COLORS[seg.color ?? line.color ?? "text"],
-            fontWeight: seg.bold ? 700 : undefined,
-          }}
-        >
-          {seg.text}
-        </span>
-      ))}
+      {line.segments.map((seg, i) => {
+        const style: React.CSSProperties = {
+          color: LINE_COLORS[seg.color ?? line.color ?? "text"],
+          fontWeight: seg.bold ? 700 : undefined,
+        };
+
+        if (!seg.href) {
+          return (
+            <span key={i} style={style}>
+              {seg.text}
+            </span>
+          );
+        }
+
+        // `.link` is the site-wide treatment: plain until hover, which suits a
+        // terminal — an always-underlined run would read as markup, not output.
+        // mailto stays in this tab; a new tab for it would leave a blank one behind.
+        const newTab = !seg.href.startsWith("mailto:");
+        return (
+          <a
+            key={i}
+            className="link"
+            href={seg.href}
+            {...(newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+            style={{ ...style, cursor: "pointer" }}
+          >
+            {seg.text}
+          </a>
+        );
+      })}
     </div>
   );
 };

@@ -23,8 +23,9 @@ import {
 import type { LineColor } from "@/theme/palette";
 export type { LineColor };
 
-/** A run of text within a line that carries its own colour / weight. */
-export type Segment = { text: string; color?: LineColor; bold?: boolean };
+/** A run of text within a line that carries its own colour / weight. `href`
+ *  turns the run into a real link — real terminals linkify URLs too. */
+export type Segment = { text: string; color?: LineColor; bold?: boolean; href?: string };
 
 /**
  * One rendered line. `text` is always the plain (marker-stripped) content, so
@@ -158,10 +159,26 @@ const aliasLines = (): OutputLine[] => [
  * headings pop, quotes dim, inline `**` and backticks are stripped.
  */
 
-/** Bold, inline code, `[label](url)` links and bare URLs — the four inline forms
- *  both the rendered and the source view care about. A fresh regex per call
- *  because `lastIndex` on a shared /g literal would leak between callers. */
-const inlineRe = () => /(\*\*[^*]+\*\*)|(`[^`]+`)|(\[[^\]]+\]\([^)]*\))|((?:https?:\/\/|www\.)[^\s)]+)/g;
+/** Bold, inline code, `[label](url)` links, bare URLs and bare email addresses —
+ *  the inline forms both the rendered and the source view care about. A fresh
+ *  regex per call because `lastIndex` on a shared /g literal would leak between
+ *  callers. */
+const inlineRe = () =>
+  /(\*\*[^*]+\*\*)|(`[^`]+`)|(\[[^\]]+\]\([^)]*\))|((?:https?:\/\/|www\.)[^\s)]+)|([\w.+-]+@[\w-]+(?:\.[\w-]+)+)/g;
+
+const EMAIL_TOKEN = /^[\w.+-]+@[\w-]+(?:\.[\w-]+)+$/;
+
+/**
+ * Only http(s) and mailto ever become real links. The markdown under `content/`
+ * is trusted today, but a URL from a file is still data reaching an `href`, and
+ * an allowlist costs nothing — `javascript:` and `data:` render as plain text.
+ */
+const SAFE_HREF = /^(?:https?:|mailto:)/i;
+
+const linkSegment = (text: string, color: LineColor, url: string): Segment => {
+  const candidate = /^www\./i.test(url) ? `https://${url}` : url.trim();
+  return SAFE_HREF.test(candidate) ? { text, color, href: candidate } : { text, color };
+};
 
 /**
  * Walk the inline tokens of a line, leaving it to the caller to decide what each
@@ -190,15 +207,22 @@ const tokenize =
 export const parseInline = tokenize((tok, base) => {
   if (tok.startsWith("**")) return { text: tok.slice(2, -2), color: base, bold: true };
   if (tok.startsWith("`")) return { text: tok.slice(1, -1), color: "green" };
-  if (tok.startsWith("[")) return { text: /\[([^\]]+)\]/.exec(tok)?.[1] ?? tok, color: "pink" };
-  return { text: tok, color: "cyan" };
+  if (tok.startsWith("[")) {
+    const md = /\[([^\]]+)\]\(([^)]*)\)/.exec(tok);
+    return linkSegment(md?.[1] ?? tok, "pink", md?.[2] ?? "");
+  }
+  if (EMAIL_TOKEN.test(tok)) return { text: tok, color: "cyan", href: `mailto:${tok}` };
+  return linkSegment(tok, "cyan", tok);
 });
 
 /** Inline highlighter that PRESERVES the markdown markers (source view). */
 const highlightInlineSource = tokenize((tok, base) => {
   if (tok.startsWith("**")) return { text: tok, color: base, bold: true };
   if (tok.startsWith("`")) return { text: tok, color: "green" };
-  return { text: tok, color: "cyan" }; // links + bare urls
+  // markers stay visible, but the whole token still carries the destination
+  if (tok.startsWith("[")) return linkSegment(tok, "cyan", /\]\(([^)]*)\)/.exec(tok)?.[1] ?? "");
+  if (EMAIL_TOKEN.test(tok)) return { text: tok, color: "cyan", href: `mailto:${tok}` };
+  return linkSegment(tok, "cyan", tok);
 });
 
 const joinSegs = (segs: Segment[]) => segs.map((s) => s.text).join("");
@@ -330,13 +354,40 @@ const cmdTree = (root: VfsDir, cwd: string, args: string[]): OutputLine[] => {
   return out;
 };
 
+/** A `label   value` row where the value can be clicked. The hrefs are built the
+ *  same way ContactBlock builds them, so both views point at the same places. */
+const contactRow = (label: string, value: string, color: LineColor, url?: string): OutputLine => {
+  const segments: Segment[] = [
+    { text: label.padEnd(11), color },
+    url ? linkSegment(value, color, url) : { text: value, color },
+  ];
+  return { text: joinSegs(segments), color, segments };
+};
+
 const contactLines = ({ contact }: Identity): OutputLine[] => [
-  c(`${"email".padEnd(11)}${contact.email}`, "cyan"),
-  c(`${"linkedin".padEnd(11)}${contact.linkedin}`, "pink"),
-  c(`${"github".padEnd(11)}${contact.github}`, "purple"),
-  c(`${"location".padEnd(11)}${contact.location}`, "dim"),
+  contactRow("email", contact.email, "cyan", `mailto:${contact.email}`),
+  contactRow("linkedin", contact.linkedin, "pink", `https://${contact.linkedin}`),
+  contactRow("github", contact.github, "purple", `https://${contact.github}`),
+  contactRow("location", contact.location, "dim"),
   c("open to interesting conversations — say hi.", "faint"),
 ];
+
+/** Prefilled so the click lands in a composed draft rather than a blank one. */
+const HIRE_SUBJECT = "Interested in working together";
+
+const hireLines = ({ contact }: Identity): OutputLine[] => {
+  const arrow: Segment = { text: "→ ", color: "cyan" };
+  const link = linkSegment(
+    contact.email,
+    "cyan",
+    `mailto:${contact.email}?subject=${encodeURIComponent(HIRE_SUBJECT)}`,
+  );
+  return [
+    c("[sudo] password for recruiter: ********", "dim"),
+    c("permission granted.", "green"),
+    { text: joinSegs([arrow, link]), color: "cyan", segments: [arrow, link] },
+  ];
+};
 
 /**
  * Evaluate one line of input. `prevCwd` is used to support `cd -`.
@@ -359,14 +410,7 @@ export const runCommand = (
     return { ...base, lines: [c("launching classic view…", "cyan")], navigate: "/classic/" };
   }
   if (lower === "sudo hire-me" || lower === "hire-me" || lower === "sudo hire me") {
-    return {
-      ...base,
-      lines: [
-        c("[sudo] password for recruiter: ********", "dim"),
-        c("permission granted.", "green"),
-        c(`→ ${identity.contact.email}`, "cyan"),
-      ],
-    };
+    return { ...base, lines: hireLines(identity) };
   }
   if (lower === "vaporwave" || lower === "aesthetic") {
     return {
