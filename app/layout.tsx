@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { SITE_URL } from "@/modules/site";
 import "@/theme/globals.css";
 
@@ -30,7 +31,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       {/* suppressHydrationWarning: browser extensions (e.g. Grammarly) inject
           attributes like data-gr-ext-installed onto <body> before hydration.
           This suppresses that false-positive on this node's attributes only. */}
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        {children}
+        <SpeedInsights />
+      </body>
     </html>
   );
 }
