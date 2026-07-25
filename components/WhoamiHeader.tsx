@@ -2,11 +2,12 @@ import { TEXT } from "@/theme/palette";
 
 import { TypedRole } from "./TypedRole";
 
+/** Lives in public/, so the src is the served path rather than a bundled import. */
+const PORTRAIT = "/nandor-szentpeteri.jpg";
+
 interface WhoamiHeaderProps {
   /** The `# Heading` of content/README.md — the same name `whoami` prints. */
   name: string;
-  /** Break the name over two lines — fits the terminal view's narrow column. */
-  stacked?: boolean;
   /** The name's font size; the classic hero has far more room than the column. */
   nameSize?: string;
 }
@@ -15,27 +16,30 @@ interface WhoamiHeaderProps {
  * The identity header both views open with: the `$ whoami` prompt, the name, and
  * the self-typing role line. Shared so the two views can't drift apart.
  */
-export const WhoamiHeader = ({ name, stacked = false, nameSize = "clamp(38px,6vw,60px)" }: WhoamiHeaderProps) => {
-  // Stacking breaks after the first word, so a middle name would ride along with
-  // the surname rather than stranding a line of its own.
-  const [first, ...rest] = name.split(" ");
-
-  return (
-    <div className="whoami" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: TEXT.dim }}>$ whoami</div>
-      {/* The size rides a custom property rather than `font-size` directly, so the
-          phone breakpoint can shrink it without having to out-specify this inline
-          style. The space before the <br> is what keeps the two words apart once
-          the break is hidden on small screens. */}
-      <h1
-        className="whoami-name"
-        style={{ ["--name-size" as string]: nameSize, margin: 0, fontWeight: 700, lineHeight: 1.05, letterSpacing: "-.02em" }}
-      >
-        {first}{" "}
-        {stacked ? <br className="whoami-break" /> : null}
-        {rest.join(" ")}
-      </h1>
-      <TypedRole />
+export const WhoamiHeader = ({ name, nameSize = "clamp(30px,4.2vw,46px)" }: WhoamiHeaderProps) => (
+  <div className="whoami" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: TEXT.dim }}>$ whoami</div>
+    {/* The name and the role share a column so the portrait can stand against
+        both. The portrait leads: with alt="" it is out of the accessibility
+        tree, so putting it first costs a screen reader nothing. */}
+    <div className="whoami-row">
+      {/* alt is empty on purpose: the <h1> beside it already gives the name, and
+          a screen reader announcing it twice is noise, not information. */}
+      <span className="whoami-avatar">
+        <img src={PORTRAIT} alt="" width={320} height={320} />
+      </span>
+      <div className="whoami-titles">
+        {/* The size rides a custom property rather than `font-size` directly, so
+            the phone breakpoint can shrink it without having to out-specify this
+            inline style. */}
+        <h1
+          className="whoami-name"
+          style={{ ["--name-size" as string]: nameSize, margin: 0, fontWeight: 700, lineHeight: 1.05, letterSpacing: "-.02em" }}
+        >
+          {name}
+        </h1>
+        <TypedRole />
+      </div>
     </div>
-  );
-};
+  </div>
+);

@@ -125,6 +125,43 @@ a:hover {
   font-size: var(--name-size);
 }
 
+/* The portrait sits against the name, not the whole identity stack, so the
+   typed role below still runs the full width of the column. */
+.whoami-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+/* The name + role column the portrait stands against. */
+.whoami-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* The photo is left alone — no wash, no desaturation. The ring is what ties it
+   to the page, so the picture only has to be a good picture. Green rather than
+   cyan: it sits closer to the foliage it wraps, and green is already a
+   first-class accent here (the prompt, the CV link, hire-me). A little cyan in
+   the mix keeps it from going lime. */
+.whoami-avatar {
+  flex: 0 0 auto;
+  width: clamp(72px, 6vw, 98px);
+  height: clamp(72px, 6vw, 98px);
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--green) 78%, var(--cyan));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--green) 16%, transparent);
+}
+.whoami-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .typed-role {
   font-family: var(--font-mono);
   font-weight: 500;
@@ -175,13 +212,19 @@ a:hover {
   .whoami {
     gap: 10px !important;
   }
-  /* One line on a phone: drop the forced break and shrink the type so
-     "Nandor Szentpeteri" still fits a 320px screen. */
-  .whoami-break {
-    display: none;
+  .whoami-titles {
+    gap: 6px;
   }
+  /* Shrink the type so "Nandor Szentpeteri" still fits a 320px screen. */
   .whoami-name {
     font-size: clamp(24px, 7vw, 34px);
+  }
+  .whoami-avatar {
+    width: clamp(48px, 14vw, 64px);
+    height: clamp(48px, 14vw, 64px);
+  }
+  .whoami-row {
+    gap: 14px;
   }
   .typed-role {
     font-size: 14px;

@@ -43,7 +43,7 @@ export default function Home() {
       >
         {/* identity — layout lives in globals.css so the mobile rule can override it */}
         <div className="home-identity enter">
-          <WhoamiHeader name={name} stacked nameSize="clamp(34px,3.4vw,48px)" />
+          <WhoamiHeader name={name} nameSize="clamp(22px,2.8vw,36px)" />
           <div className="home-hide-sm" style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: 13.5, lineHeight: 1.65, color: TEXT.muted }}>
             <p style={{ margin: 0 }}>
               Full-stack software engineer with 13+ years of experience building and shipping web applications. I&apos;ve
