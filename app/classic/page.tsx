@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
+
 import { Badges } from "@/components/Badges";
 import { ContactBlock, ContactTagline } from "@/components/ContactBlock";
-import { BORDER, PALETTE, TEXT, fade } from "@/theme/palette";
-import NeonBackground from "@/layout/NeonBackground";
-import ViewToggle from "@/layout/ViewToggle";
 import { WhoamiHeader } from "@/components/WhoamiHeader";
+import { NeonBackground } from "@/layout/NeonBackground";
+import { ViewToggle } from "@/layout/ViewToggle";
 import { readContent } from "@/modules/content";
 import { parseCv } from "@/modules/cv";
+import { BORDER, PALETTE, TEXT, fade } from "@/theme/palette";
 
 export const metadata: Metadata = {
   title: "Nandor Szentpeteri — CV (classic view)",
@@ -19,8 +20,8 @@ const GREEN = PALETTE.green;
 const CARD_COLORS = [CYAN, PINK, GREEN];
 
 /** Render **bold** project/tech names as cyan highlights within prose. */
-function withHighlights(text: string): React.ReactNode[] {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
+const withHighlights = (text: string): React.ReactNode[] =>
+  text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
     part.startsWith("**") && part.endsWith("**") ? (
       <strong key={i} style={{ color: CYAN, fontWeight: 600 }}>
         {part.slice(2, -2)}
@@ -29,26 +30,27 @@ function withHighlights(text: string): React.ReactNode[] {
       <span key={i}>{part}</span>
     ),
   );
-}
 
 /** Tag colour for a writing card, e.g. "WEB · DRAFTING" → pink. */
-function tagColor(tag: string): string {
+const tagColor = (tag: string): string => {
   const head = tag.split("·")[0].trim().toUpperCase();
   if (head === "AI") return GREEN;
   if (head === "WEB") return PINK;
   return CYAN;
+};
+
+interface SectionTitleProps {
+  children: React.ReactNode;
 }
 
 /* Section width and padding live in globals.css (.cv-section), so phones get
    narrower gutters without every section repeating a media query. */
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ fontFamily: "var(--font-mono)", fontWeight: 500, fontSize: 11, letterSpacing: ".3em", color: PALETTE.purple, marginBottom: 20 }}>
-      {children}
-    </div>
-  );
-}
+const SectionTitle = ({ children }: SectionTitleProps) => (
+  <div style={{ fontFamily: "var(--font-mono)", fontWeight: 500, fontSize: 11, letterSpacing: ".3em", color: PALETTE.purple, marginBottom: 20 }}>
+    {children}
+  </div>
+);
 
 export default function Classic() {
   // Parsed from the same content/*.md the terminal serves — single source.
@@ -71,7 +73,7 @@ export default function Classic() {
         {/* hero */}
         <header className="cv-section cv-section-hero enter">
           <div style={{ marginBottom: 24 }}>
-            <WhoamiHeader />
+            <WhoamiHeader name={cv.name} />
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 640, fontSize: 14, lineHeight: 1.65, color: TEXT.muted, marginBottom: 22 }}>
             {cv.bio.map((p, i) => (

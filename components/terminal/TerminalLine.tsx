@@ -1,8 +1,14 @@
-import { LINE_COLORS } from "@/theme/palette";
 import type { OutputLine } from "@/modules/commands";
+import { LINE_COLORS } from "@/theme/palette";
+
+interface TerminalLineProps {
+  line: OutputLine;
+  /** Font size in px; the classic page renders the same lines a touch smaller. */
+  size?: number;
+}
 
 /** Renders one terminal line — either a single colour or highlighted segments. */
-export default function TerminalLine({ line, size = 13 }: { line: OutputLine; size?: number }) {
+export const TerminalLine = ({ line, size = 13 }: TerminalLineProps) => {
   const base: React.CSSProperties = {
     fontFamily: "var(--font-mono)",
     fontSize: size,
@@ -31,4 +37,4 @@ export default function TerminalLine({ line, size = 13 }: { line: OutputLine; si
       ))}
     </div>
   );
-}
+};

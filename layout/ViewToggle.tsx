@@ -1,8 +1,13 @@
 import Link from "next/link";
+
 import { PALETTE, TEXT, fade } from "@/theme/palette";
 
+interface ViewToggleProps {
+  active: "terminal" | "classic";
+}
+
 /** The terminal | classic switch in the top-right of both views. */
-export default function ViewToggle({ active }: { active: "terminal" | "classic" }) {
+export const ViewToggle = ({ active }: ViewToggleProps) => {
   // Padding and font size live in globals.css (.view-toggle / .view-tab-cell) so
   // they can shrink on phones — an inline size would win over the media query.
   const tab = (label: string, current: boolean) => ({
@@ -34,4 +39,4 @@ export default function ViewToggle({ active }: { active: "terminal" | "classic" 
       )}
     </div>
   );
-}
+};
