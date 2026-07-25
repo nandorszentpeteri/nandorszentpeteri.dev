@@ -1,0 +1,240 @@
+import { describe, it, expect } from "vitest";
+import { buildVfs, HOME_PATH, type ContentEntry } from "@/modules/vfs";
+import { runCommand, complete, renderMarkdownLines, parseInline } from "@/modules/commands";
+
+// Mirrors the real content shape: single-file sections at home, plus the
+// writings/ directory for cd/ls to have something to walk into.
+const ENTRIES: ContentEntry[] = [
+  { path: "README.md", content: "# Home\nwelcome home" },
+  { path: "work.md", content: "# Work\n- Roku" },
+  { path: "skills.md", content: "# Skills\nTypeScript" },
+  { path: "writings/README.md", content: "# Writings\n- posts" },
+  { path: "writings/webrtc.md", content: "# WebRTC\ndraft notes" },
+];
+
+const root = buildVfs(ENTRIES);
+const home = { cwd: HOME_PATH };
+const writings = { cwd: `${HOME_PATH}/writings` };
+const text = (r: ReturnType<typeof runCommand>) => r.lines.map((l) => l.text).join("\n");
+
+describe("runCommand — navigation", () => {
+  it("ls lists directories then files", () => {
+    const r = runCommand(root, home, "ls");
+    const texts = r.lines.map((l) => l.text);
+    expect(texts).toContain("writings/");
+    expect(texts).toContain("README.md");
+    expect(texts).toContain("work.md");
+    // directory listed before file
+    expect(texts.indexOf("writings/")).toBeLessThan(texts.indexOf("README.md"));
+  });
+
+  it("ls reports missing paths", () => {
+    const r = runCommand(root, home, "ls nope");
+    expect(text(r)).toMatch(/no such file or directory/);
+  });
+
+  it("cd changes the working directory", () => {
+    const r = runCommand(root, home, "cd writings");
+    expect(r.cwd).toBe(`${HOME_PATH}/writings`);
+  });
+
+  it("cd with no argument returns home", () => {
+    const r = runCommand(root, writings, "cd");
+    expect(r.cwd).toBe(HOME_PATH);
+  });
+
+  it("cd into a file errors and keeps cwd", () => {
+    const r = runCommand(root, home, "cd README.md");
+    expect(r.cwd).toBe(HOME_PATH);
+    expect(text(r)).toMatch(/not a directory/);
+  });
+
+  it("cd - jumps to the previous directory", () => {
+    const r = runCommand(root, writings, "cd -", HOME_PATH);
+    expect(r.cwd).toBe(HOME_PATH);
+  });
+
+  it("pwd prints the absolute cwd", () => {
+    const r = runCommand(root, writings, "pwd");
+    expect(text(r)).toBe(`${HOME_PATH}/writings`);
+  });
+});
+
+describe("runCommand — files", () => {
+  it("cat highlights the raw markdown source, keeping the markers", () => {
+    const r = runCommand(root, home, "cat README.md");
+    expect(text(r)).toContain("# Home"); // heading marker kept verbatim (source view)
+    expect(text(r)).toContain("welcome home");
+    const heading = r.lines.find((l) => l.text === "# Home");
+    expect(heading?.color).toBe("cyan"); // but it's syntax-highlighted
+    expect(heading?.segments).toBeTruthy();
+  });
+
+  it("cat resolves relative paths from cwd", () => {
+    const r = runCommand(root, writings, "cat webrtc.md");
+    expect(text(r)).toContain("WebRTC");
+  });
+
+  it("cat on a directory errors", () => {
+    const r = runCommand(root, home, "cat writings");
+    expect(text(r)).toMatch(/is a directory/);
+  });
+
+  it("cat on a missing file errors", () => {
+    const r = runCommand(root, home, "cat ghost.md");
+    expect(text(r)).toMatch(/no such file or directory/);
+  });
+
+  it("less opens the pager with the rendered view (markers stripped)", () => {
+    const r = runCommand(root, home, "less README.md");
+    expect(r.pager).toBeTruthy();
+    const joined = r.pager?.lines.map((l) => l.text).join("\n") ?? "";
+    expect(joined).toContain("welcome home");
+    expect(joined).toContain("Home");
+    expect(joined).not.toContain("# Home"); // rendered, not raw source
+    expect(r.pager?.title).toBe("~/README.md");
+  });
+
+  it("tree renders the hierarchy", () => {
+    const r = runCommand(root, home, "tree");
+    const t = text(r);
+    expect(t).toContain("writings/");
+    expect(t).toContain("webrtc.md");
+    expect(t).toMatch(/[├└]──/);
+  });
+});
+
+describe("runCommand — shell built-ins", () => {
+  it("help lists commands", () => {
+    const r = runCommand(root, home, "help");
+    expect(text(r)).toMatch(/ls \[path\]/);
+    expect(text(r)).toMatch(/whoami/);
+    expect(text(r)).toMatch(/gui/);
+  });
+
+  it("whoami prints a bespoke identity", () => {
+    const r = runCommand(root, home, "whoami");
+    expect(text(r)).toContain("Nandor Szentpeteri");
+    expect(text(r)).toMatch(/Senior Software Engineer @ Roku/);
+  });
+
+  it("contact-me prints contact details", () => {
+    const r = runCommand(root, home, "contact-me");
+    expect(text(r)).toMatch(/nandor\.szentpeteri@gmail\.com/);
+    expect(text(r)).toMatch(/linkedin\.com\/in\/nandorszentpeteri/);
+  });
+
+  it("aliases lists friendly shortcuts", () => {
+    const r = runCommand(root, home, "aliases");
+    expect(text(r)).toMatch(/work/);
+    expect(text(r)).toMatch(/cat ~\/work\.md/);
+  });
+
+  it("clear signals a screen wipe", () => {
+    const r = runCommand(root, home, "clear");
+    expect(r.clear).toBe(true);
+  });
+
+  it("gui requests navigation to the classic page", () => {
+    const r = runCommand(root, home, "gui");
+    expect(r.navigate).toBe("/classic/");
+  });
+
+  it("echo echoes its args", () => {
+    const r = runCommand(root, home, "echo hi there");
+    expect(text(r)).toBe("hi there");
+  });
+
+  it("unknown commands report not found", () => {
+    const r = runCommand(root, home, "frobnicate");
+    expect(text(r)).toMatch(/command not found: frobnicate/);
+  });
+
+  it("empty input produces no output", () => {
+    const r = runCommand(root, home, "   ");
+    expect(r.lines).toHaveLength(0);
+  });
+});
+
+describe("runCommand — aliases & easter eggs", () => {
+  it("a bare alias cats its target file", () => {
+    const r = runCommand(root, home, "work");
+    expect(text(r)).toContain("Work");
+  });
+
+  it("aliases are case-insensitive", () => {
+    const r = runCommand(root, home, "SKILLS");
+    expect(text(r)).toContain("Skills");
+  });
+
+  it("sudo hire-me grants permission", () => {
+    const r = runCommand(root, home, "sudo hire-me");
+    expect(text(r)).toMatch(/permission granted/);
+    expect(text(r)).toMatch(/nandor\.szentpeteri@gmail\.com/);
+  });
+});
+
+describe("complete", () => {
+  it("completes a unique command", () => {
+    const r = complete(root, HOME_PATH, "ca");
+    expect(r.replacement).toBe("cat");
+  });
+
+  it("offers multiple command candidates on an ambiguous prefix", () => {
+    const r = complete(root, HOME_PATH, "c");
+    expect(r.completions).toEqual(expect.arrayContaining(["cat", "cd", "clear", "contact"]));
+  });
+
+  it("completes a directory path argument", () => {
+    const r = complete(root, HOME_PATH, "cat wri");
+    expect(r.replacement).toBe("cat writings/");
+  });
+
+  it("lists directory contents for a trailing slash", () => {
+    const r = complete(root, HOME_PATH, "cat writings/");
+    expect(r.completions).toEqual(expect.arrayContaining(["README.md", "webrtc.md"]));
+  });
+
+  it("returns nothing for an unmatched path", () => {
+    const r = complete(root, HOME_PATH, "cat zzz");
+    expect(r.completions).toHaveLength(0);
+  });
+});
+
+describe("parseInline", () => {
+  it("marks bold runs", () => {
+    const segs = parseInline("a **b** c");
+    expect(segs).toContainEqual({ text: "b", color: "text", bold: true });
+  });
+
+  it("tints inline code green", () => {
+    const segs = parseInline("run `cmd` now");
+    expect(segs).toContainEqual({ text: "cmd", color: "green" });
+  });
+
+  it("colours links and shows their label", () => {
+    const segs = parseInline("see [docs](https://x.dev)");
+    expect(segs).toContainEqual({ text: "docs", color: "pink" });
+  });
+});
+
+describe("renderMarkdownLines", () => {
+  it("colours headings cyan, strips the marker, and bolds them", () => {
+    const [first] = renderMarkdownLines("# Title");
+    expect(first.text).toBe("Title");
+    expect(first.color).toBe("cyan");
+    expect(first.segments?.every((s) => s.bold)).toBe(true);
+  });
+
+  it("renders bullets and strips emphasis in the plain text", () => {
+    const lines = renderMarkdownLines("- **bold** item");
+    expect(lines[0].text).toBe("  • bold item");
+    // the bold run survives as a highlighted segment
+    expect(lines[0].segments).toContainEqual({ text: "bold", color: "text", bold: true });
+  });
+
+  it("keeps indented blocks verbatim and green", () => {
+    const lines = renderMarkdownLines("    code block");
+    expect(lines[0]).toEqual({ text: "    code block", color: "green" });
+  });
+});

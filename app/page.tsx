@@ -1,0 +1,72 @@
+import Terminal from "@/components/terminal/Terminal";
+import { Badges } from "@/components/Badges";
+import { ContactBlock, ContactCompact, ContactTagline } from "@/components/ContactBlock";
+import { TEXT } from "@/theme/palette";
+import NeonBackground from "@/layout/NeonBackground";
+import ViewToggle from "@/layout/ViewToggle";
+import { WhoamiHeader } from "@/components/WhoamiHeader";
+import { readContent } from "@/modules/content";
+import { parseCv } from "@/modules/cv";
+
+export default function Home() {
+  // Read at build time; the browser only ever receives the resulting tree.
+  const entries = readContent();
+  // Same parse the classic page uses, so the pills and contact rows match on both views.
+  const { badges, contact } = parseCv(entries);
+
+  return (
+    // Pinned to the viewport: the terminal view always fills the page and the
+    // window itself never scrolls (the terminal scrolls internally instead).
+    <div style={{ position: "fixed", inset: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+      <NeonBackground />
+
+      {/* top bar */}
+      <div className="topbar" style={{ position: "relative", zIndex: 2 }}>
+        <span className="topbar-path">~/nandorszentpeteri</span>
+        <ViewToggle active="terminal" />
+      </div>
+
+      {/* two-column scene */}
+      <div
+        className="home-content"
+        style={{
+          position: "relative",
+          zIndex: 2,
+          flex: 1,
+          minHeight: 0,
+          alignItems: "stretch",
+          maxWidth: 1600,
+          margin: "0 auto",
+          width: "100%",
+          boxSizing: "border-box",
+        }}
+      >
+        {/* identity — layout lives in globals.css so the mobile rule can override it */}
+        <div className="home-identity enter">
+          <WhoamiHeader stacked nameSize="clamp(34px,3.4vw,48px)" />
+          <div className="home-hide-sm" style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: 13.5, lineHeight: 1.65, color: TEXT.muted }}>
+            <p style={{ margin: 0 }}>
+              Full-stack software engineer with 13+ years of experience building and shipping web applications. I&apos;ve
+              worked at every layer of the stack, from React and Next.js front-ends to back-end microservices and CI/CD
+              pipelines.
+            </p>
+            <p style={{ margin: 0 }}>
+              For the past year, AI has become central to how I work. I use LLMs daily in my engineering workflow and
+              have invested heavily in agentic AI — building automation workflows and finding real-life applications of
+              agentic systems, not just in engineering.
+            </p>
+          </div>
+          <Badges items={badges} className="home-hide-sm" />
+          <ContactBlock contact={contact} className="home-hide-sm" />
+          <ContactCompact contact={contact} />
+          <ContactTagline text={contact.tagline} align="left" />
+        </div>
+
+        {/* terminal */}
+        <div className="home-terminal enter" style={{ ["--enter-delay" as string]: ".08s" }}>
+          <Terminal entries={entries} />
+        </div>
+      </div>
+    </div>
+  );
+}
