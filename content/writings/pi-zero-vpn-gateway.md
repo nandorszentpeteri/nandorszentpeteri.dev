@@ -2,8 +2,7 @@
 
 `HARDWARE · drafting`
 
-A £15 computer that routes a whole network through a tunnel — a small,
-self-hosted travel gateway.
+A £15 computer that routes a whole network through a tunnel — a small, self-hosted travel gateway.
 
 - Why a dedicated gateway beats per-device VPN clients.
 - Routing, DNS, and a kill-switch that actually fails closed.

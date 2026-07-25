@@ -67,6 +67,13 @@ syntax-highlights them for `cat` / `less`; the classic page renders them as HTML
 with [`react-markdown`](layout/Markdown.tsx). Add a file under `content/` and it
 appears in `ls`, `tree`, `cat` and `less` immediately — no code changes needed.
 
+**Keep each paragraph on one line — don't hard-wrap prose.** `cat` and `less`
+show the file as it is on disk, so a paragraph wrapped at 80 columns wraps
+*again* on a phone that only fits 40, and every other line comes out short. One
+long line reflows to whatever width it's given. It also keeps `**bold runs**`
+from being split across a line break, where the inline highlighter can't see
+them as one token.
+
 ### The shell
 
 [`modules/commands.ts`](modules/commands.ts) is a pure command evaluator: given the

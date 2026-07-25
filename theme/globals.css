@@ -62,17 +62,6 @@ a:hover {
   }
 }
 
-/* One line of terminal output. A real terminal never wraps mid-thought because
-   the text was written to the column width; here the column is whatever phone
-   is holding it, so wrapping is a fact of life and the job is to make it look
-   deliberate. The negative text-indent cancels the padding for the first line
-   and leaves it for every line after, so a continuation sits a couple of
-   characters in — clearly the same entry, not the next one. */
-.term-line {
-  padding-left: 2ch;
-  text-indent: -2ch;
-}
-
 /* Thin, on-theme scrollbars inside the terminal + pager. */
 .term-scroll::-webkit-scrollbar {
   width: 8px;
