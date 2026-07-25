@@ -31,8 +31,21 @@ export type Segment = { text: string; color?: LineColor; bold?: boolean; href?: 
  * One rendered line. `text` is always the plain (marker-stripped) content, so
  * it's easy to assert on. `segments`, when present, drive syntax-highlighted
  * rendering (headings, bold, inline code, links).
+ *
+ * `wrapIndent` is the column a continuation should hang at when the line is too
+ * wide for the screen — the only concession this module makes to the fact that
+ * it might be read on a phone. A real terminal never needs it: the window is a
+ * fixed number of columns and output is written to fit. Here the window is
+ * whatever device is holding it, so a padded two-column row like
+ * `  gui          open the classic page` runs out of room on a 360px screen and
+ * drops "page" to column 0, where it reads as a command of its own. Setting
+ * this to the column the description starts at makes the overflow line up under
+ * the description instead, the way a man page does.
+ *
+ * Only lines whose alignment carries meaning need it. Prose is left alone —
+ * hanging prose looks like a series of unrelated fragments.
  */
-export type OutputLine = { text: string; color?: LineColor; segments?: Segment[] };
+export type OutputLine = { text: string; color?: LineColor; segments?: Segment[]; wrapIndent?: number };
 
 /**
  * Who the shell says it is. Parsed out of `content/*.md` and handed in, so
@@ -112,51 +125,79 @@ const assertsDir = (target: string) => target.trim().endsWith("/");
 
 const notADir = (cmd: string, target: string): OutputLine[] => [c(`${cmd}: ${target}: not a directory`, "pink")];
 
-const shortcutWords = [
-  "about",
-  "work",
-  "skills",
-  "education",
-  "certs",
-  ...(WRITINGS_ENABLED ? ["writings"] : []),
-  "interests",
-  "contact",
-];
+/** Two spaces of gutter in front of every table row, in both tables below. */
+const TABLE_INDENT = "  ";
 
 /**
- * The two-column table is the first thing most visitors read, and a phone is
- * about 38 monospace characters wide. Every row here is kept under that, with
- * the asides that used to trail the descriptions (`cd ..`, `q to quit`) moved
- * to a prose line below — a wrapped table row reads as a second command, which
- * is exactly the wrong thing for a list of commands to do.
+ * Lay a name and a description out as a padded two-column row.
+ *
+ * Curried on the column width so `help` and `aliases` each fix their own, and
+ * so the width is stated once per table rather than at every row. The returned
+ * line carries the description's column as its `wrapIndent`, which is the whole
+ * point of deriving the width instead of hardcoding it: rename the longest
+ * command and the padding and the hanging indent move together.
  */
+const tableRow =
+  (width: number) =>
+  (name: string, description: string, color: LineColor = "text"): OutputLine => ({
+    text: `${TABLE_INDENT}${name.padEnd(width)}${description}`,
+    color,
+    wrapIndent: TABLE_INDENT.length + width,
+  });
+
+/** The widest name plus a two-space gutter — the column the descriptions start at. */
+const columnFor = (names: string[]) => Math.max(...names.map((n) => n.length)) + 2;
+
+/**
+ * The command table, as data rather than pre-padded strings, so the column
+ * width is computed from the contents.
+ *
+ * Descriptions are kept short deliberately. This table is the first thing most
+ * visitors read, and the narrow phones still in use fit about 37 monospace
+ * characters — so a row of 40 loses its last word to the next line. The asides
+ * that used to trail these (`cd ..`, `q to quit`) live on a prose line below
+ * for the same reason. `wrapIndent` catches whatever still overflows.
+ */
+const HELP_ROWS: [name: string, description: string, color?: LineColor][] = [
+  ["whoami", "who is this guy"],
+  ["ls [path]", "list a directory"],
+  ["cd [path]", "change directory"],
+  ["cat <file>", "print a file"],
+  ["less <file>", "page through a file"],
+  ["tree [path]", "show the tree"],
+  ["pwd", "where am I"],
+  ["contact-me", "how to reach me"],
+  ["aliases", "list the shortcuts"],
+  ["clear", "wipe the screen"],
+  ["gui", "switch to classic", "cyan"],
+];
+
+const helpRow = tableRow(columnFor(HELP_ROWS.map(([name]) => name)));
+
 const helpLines = (): OutputLine[] => [
   c("bash-ish. real commands, real filesystem. try these:", "dim"),
   c(""),
-  c("  whoami       who is this guy", "text"),
-  c("  ls [path]    list a directory", "text"),
-  c("  cd [path]    change directory", "text"),
-  c("  cat <file>   print a file", "text"),
-  c("  less <file>  page through a file", "text"),
-  c("  tree [path]  show the tree", "text"),
-  c("  pwd          where am I", "text"),
-  c("  contact-me   how to reach me", "text"),
-  c("  aliases      list the shortcuts", "text"),
-  c("  clear        wipe the screen", "text"),
-  c("  gui          open the classic page", "cyan"),
+  ...HELP_ROWS.map(([name, description, color]) => helpRow(name, description, color)),
   c(""),
-  c("cd .. , cd ~ and cd - all work. q quits less.", "faint"),
+  // Short lines, one fact each, rather than a paragraph of hints. Prose has no
+  // alignment for `wrapIndent` to preserve, so the only way it survives a narrow
+  // screen is by being short enough not to need the screen's whole width.
+  // `aliases` used to spell its own shortcuts out here too; it's a command in
+  // the table above, and running it is a better introduction than a list that
+  // wrapped into a line beginning with a separator.
+  c("cd .. , cd ~ and cd - all work.", "faint"),
+  c("Tab completes, ↑/↓ walk history.", "faint"),
+  c("q quits the pager.", "faint"),
   c(""),
-  c("shortcuts for the impatient (see `aliases`):", "dim"),
-  c(`  ${shortcutWords.join(" · ")}`, "faint"),
-  c(""),
-  c("tip: Tab completes, ↑/↓ walk history. ...and maybe a hidden one or two.", "faint"),
+  c("...and maybe a hidden one or two.", "faint"),
 ];
+
+const aliasRow = tableRow(columnFor(Object.keys(ALIASES)));
 
 const aliasLines = (): OutputLine[] => [
   c("aliases — a friendly word that just opens a file:", "dim"),
   c(""),
-  ...Object.entries(ALIASES).map(([name, target]) => c(`  ${name.padEnd(12)} cat ${target}`, "cyan")),
+  ...Object.entries(ALIASES).map(([name, target]) => aliasRow(name, `cat ${target}`, "cyan")),
   c(""),
   // Quoting ALIASES rather than a literal path: the example can't outlive a rename.
   c(`so typing "work" is the same as "cat ${ALIASES.work}".`, "faint"),

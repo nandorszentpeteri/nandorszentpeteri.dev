@@ -16,6 +16,14 @@ export const TerminalLine = ({ line, size = 13 }: TerminalLineProps) => {
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
     color: LINE_COLORS[line.color ?? "text"],
+    // A line that says where its continuation belongs gets a hanging indent:
+    // the padding moves the whole block right and the negative text-indent
+    // pulls the first line back out, so only the overflow is indented. In `ch`
+    // because the column is a character count, and this has to hold whatever
+    // the reader's font scaling does to the pixel size. See OutputLine.
+    ...(line.wrapIndent
+      ? { paddingLeft: `${line.wrapIndent}ch`, textIndent: `-${line.wrapIndent}ch` }
+      : null),
   };
 
   if (!line.segments) {

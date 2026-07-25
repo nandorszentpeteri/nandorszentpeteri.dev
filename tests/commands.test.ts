@@ -127,6 +127,37 @@ describe("runCommand — shell built-ins", () => {
     expect(text(r)).toMatch(/gui/);
   });
 
+  // The table is padded text, so on a narrow screen a row wraps and its tail
+  // would land in column 0, reading as a command of its own. wrapIndent is what
+  // stops that — it has to agree with the padding or the hang lands mid-word.
+  it("help rows hang at the column their description starts in", () => {
+    const row = runCommand(root, home, "help").lines.find((l) => l.text.includes("who is this guy"));
+    expect(row?.wrapIndent).toBe(row?.text.indexOf("who is this guy"));
+  });
+
+  it("help rows all hang at the same column", () => {
+    const rows = runCommand(root, home, "help").lines.filter((l) => l.wrapIndent);
+    expect(new Set(rows.map((l) => l.wrapIndent)).size).toBe(1);
+  });
+
+  it("help leaves prose unindented, having no alignment to preserve", () => {
+    const prose = runCommand(root, home, "help").lines.find((l) => l.text.startsWith("cd .. ,"));
+    expect(prose?.wrapIndent).toBeUndefined();
+  });
+
+  // Dropped from help on purpose: it's a command in the table, and the list it
+  // printed was the one line too wide to survive a phone.
+  it("help points at the aliases command rather than listing the shortcuts", () => {
+    const r = runCommand(root, home, "help");
+    expect(text(r)).toMatch(/aliases/);
+    expect(text(r)).not.toMatch(/education · certs/);
+  });
+
+  it("aliases rows hang at their own description column", () => {
+    const row = runCommand(root, home, "aliases").lines.find((l) => l.text.includes("cat ~/work.md"));
+    expect(row?.wrapIndent).toBe(row?.text.indexOf("cat ~/work.md"));
+  });
+
   it("whoami prints the name from the content", () => {
     const r = runCommand(root, home, "whoami");
     expect(text(r)).toContain(IDENTITY.name);
