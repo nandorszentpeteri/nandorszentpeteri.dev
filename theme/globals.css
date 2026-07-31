@@ -15,8 +15,10 @@
   /* The brand ramp, shared by the typed role and the closing CTA. Defined once
      so the two can't drift apart. */
   --gradient-brand: linear-gradient(90deg, var(--green), var(--cyan), var(--pink));
-  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* The two families come from `next/font` in `app/layout.tsx`, which self-hosts
+     them and hands each one down as a custom property on <html>. */
+  --font-sans: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 * {
